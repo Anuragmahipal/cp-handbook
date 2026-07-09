@@ -1,0 +1,43 @@
+[project]
+name = "cp-handbook"
+version = "0.1.0"
+description = "AI-powered Competitive Programming Handbook"
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "gitpython>=3.1.50",
+    "jinja2>=3.1.6",
+    "markdown-it-py>=4.2.0",
+    "mcp>=1.28.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "python-frontmatter>=1.3.0",
+    "python-slugify>=8.0.4",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "tomli-w>=1.2.0",
+    "watchdog>=6.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/handbook", "src/mcp_server"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src",
+    "templates",
+    "config",
+    "README.md",
+]
+
+[dependency-groups]
+dev = [
+    "hatchling>=1.31.0",
+    "pytest>=9.1.1",
+    "ruff>=0.15.20",
+]

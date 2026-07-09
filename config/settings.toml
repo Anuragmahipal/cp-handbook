@@ -1,0 +1,12 @@
+[vault]
+path = ""
+
+[git]
+auto_commit = true
+
+[templates]
+path = "templates"
+
+[notes]
+default_author = "Anurag"
+auto_backlinks = true
