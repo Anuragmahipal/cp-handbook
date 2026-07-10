@@ -4,8 +4,9 @@ A structured, file-based knowledge base for competitive programming —
 Algorithms, Problems, Patterns, and Mistakes — stored as plain Markdown
 in a local vault, with a small Python library sitting in front of it.
 
-This README documents the **persistence engine**: the layer every future
-feature (Search, MCP, AI, auto-linking) will be built on top of.
+This README documents the **persistence engine**, the **knowledge model
+layer**, and the **Beautiful Note System**: the foundation every future
+feature (Search, MCP, AI workflows) will be built on top of.
 
 ## Install
 
@@ -98,6 +99,68 @@ hld = Algorithm(title="Heavy-Light Decomposition", prerequisites=["LCA"])
 — a typed edge a future graph/search layer can walk directly, not a
 Markdown `[[Binary Lifting]]` link to be parsed later.
 
+## Beautiful Note System
+
+`Algorithm`, `Problem`, `Pattern`, `Mistake`, and `Contest` render as
+production-quality Obsidian notes, not flat field dumps. (`Topic` keeps
+its plain Chunk 2 template — it's outside this pass's scope.) Every
+note follows the same visual hierarchy:
+
+```
+# <emoji> Title
+
+> [!tip]+ Quick Facts             <- always expanded, scalar metadata at a glance
+> [!abstract]+ <Primary prose>    <- the main editable write-up, expanded by default
+> [!example]- <Supplementary>     <- collapsed: code, full lists -- progressive disclosure
+> [!example]- 🗺️ Relationships     <- collapsed: bullet list + Mermaid graph (only if non-empty)
+> [!info]- 🔎 Live Cross-References (Dataview)   <- collapsed Dataview query
+> [!quote]- 📚 Sources & References              <- collapsed, only if present
+---
+> [!info]- 📋 Metadata             <- shared footer: id / slug / kind / created / updated
+```
+
+* **Callouts + collapsible sections** — every section is an Obsidian
+  callout (`> [!type]`); supplementary ones default collapsed (`]-`),
+  primary content defaults expanded (`]+`), giving progressive
+  disclosure without hiding anything.
+* **Mermaid** — a `prerequisites`/`related_*` relation list becomes a
+  `graph LR` diagram (e.g. `LCA -->|prerequisite| "Heavy-Light
+  Decomposition"`), generated straight from the item's own `Relation`
+  data. Only rendered when there's at least one relation; skipped
+  otherwise rather than showing an empty graph.
+* **Dataview** — each type emits a fenced `dataview` query block (e.g.
+  "Problems that use this algorithm", "Other mistakes in the same
+  category"). These are plain query *text* resolved by Obsidian's
+  Dataview plugin at view time — the handbook itself does no querying,
+  indexing, or search.
+* **AI-managed sections** — free-form prose fields (an algorithm's
+  `intuition`, a mistake's `cause`) are wrapped in
+  `<!-- ai:<field>:start/end -->` HTML-comment markers: invisible in
+  Obsidian's reading view, and a clear, greppable boundary around
+  hand-written content that's meant to persist and accumulate, as
+  opposed to the structured/generated sections around it (frontmatter,
+  relationship lists, the metadata footer) which are safe to fully
+  regenerate on every render. Storage doesn't yet do read-merge-write
+  on top of these markers — that's future work, not this chunk's — but
+  the scaffolding is there.
+* **Reusable rendering helpers** — `handbook/renderers/filters.py`
+  (blockquote formatting, Mermaid label escaping, status/difficulty/
+  platform emoji, date/duration formatting) is registered once as Jinja
+  filters in `template_engine.py` and used by every template, so a
+  callout or a date looks identical everywhere instead of drifting
+  template-by-template.
+* **Template inheritance** — every dedicated template extends
+  `templates/_shared/layout.md.j2` for the one piece that's genuinely
+  identical everywhere (the closing metadata callout); `templates/_shared/macros.j2`
+  holds the reusable Jinja macros (`relation_list`, `relationship_diagram`,
+  `metadata_footer`). Frontmatter and body stay per-type, since forcing a
+  single shared shape onto genuinely different fields would hurt
+  readability more than it'd save.
+
+Rendering stays independent from storage: nothing above changes what
+`Handbook.store()`, `StorageEngine`, or the public `Renderer`/
+`MarkdownRenderer` API look like from the outside.
+
 ## Architecture
 
 ```
@@ -157,13 +220,16 @@ uv run pytest -q
 uv run ruff check src tests
 ```
 
-## Out of scope for this chunk
+## Out of scope
 
-Search, AI extraction, embeddings, MCP, Dataview/Mermaid integration,
-auto-linking, duplicate detection (beyond the id/slug policy above), and
-revision scheduling are not part of the knowledge model layer and are
-intentionally not implemented here. The models are deliberately built
-*for* those features — every relationship is already typed data
-(`Relation`/`RelationType`) rather than free-form Markdown links — but
-resolving those relationships into an actual graph, index, or scheduler
-is future work, not this chunk's.
+**Knowledge model layer (Chunk 2):** revision scheduling, duplicate
+detection beyond the id/slug policy above, and resolving `Relation`
+data into an actual traversable graph or search index are not
+implemented — the models are built *for* those features, not as them.
+
+**Beautiful Note System (Chunk 3):** search, MCP, AI workflows (writing
+or merging content into the `<!-- ai:*:start/end -->` sections), graph
+indexing, and duplicate detection are explicitly not part of this pass.
+Mermaid diagrams and Dataview queries are rendered as static text from
+each item's own fields; nothing here builds a cross-note index, and
+storage still does not read a file back before overwriting it.

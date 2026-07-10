@@ -1,44 +1,102 @@
+{% extends "_shared/layout.md.j2" %}
+{% import "_shared/macros.j2" as m %}
+
+{% block frontmatter -%}
 ---
 title: "{{ title }}"
 id: "{{ id }}"
-platform: "{{ platform }}"
-contest_type: "{{ contest_type }}"
-rank: {{ rank if rank is not none else "null" }}
-rating_change: {{ rating_change if rating_change is not none else "null" }}
-status: "{{ status }}"
+{% if aliases -%}
+aliases:
+{% for a in aliases %}
+  - "{{ a }}"
+{% endfor %}
+{% else -%}
+aliases: []
+{% endif -%}
+{% if tags -%}
 tags:
 {% for tag in tags %}
   - {{ tag }}
 {% endfor %}
+{% else -%}
+tags: []
+{% endif -%}
+platform: "{{ platform }}"
+contest_type: "{{ contest_type }}"
+start_time: {{ ('"' ~ start_time ~ '"') if start_time else "null" }}
+duration_minutes: {{ duration_minutes if duration_minutes is not none else "null" }}
+url: "{{ url }}"
+rank: {{ rank if rank is not none else "null" }}
+rating_change: {{ rating_change if rating_change is not none else "null" }}
+performance_rating: {{ performance_rating if performance_rating is not none else "null" }}
+status: "{{ status }}"
 created: "{{ created_at }}"
 updated: "{{ updated_at }}"
 ---
+{% endblock %}
 
+{% block body -%}
 # 🏆 {{ title }}
 
-**{{ platform }}** · {{ contest_type }}
+{% filter blockquote %}
+[!tip]+ Quick Facts
+**Platform:** {{ platform | platform_emoji }} {{ platform }}  ·  **Type:** {{ contest_type }}
+{% set start_display = (start_time | format_dt) if start_time else "Not recorded" -%}
+**Started:** {{ start_display }}  ·  **Duration:** {{ duration_minutes | format_minutes }}
+**Rank:** {{ rank if rank is not none else "?" }}  ·  **Rating change:** {{ rating_change if rating_change is not none else "?" }}  ·  **Performance:** {{ performance_rating if performance_rating is not none else "?" }}
+**Status:** {{ status | status_emoji }} {{ status }}
 {% if url %}
-[Contest Link]({{ url }})
+**Link:** {{ url }}
 {% endif %}
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!abstract]+ 💭 Reflection
+{{ notes | editable_block("reflection", "How did it go? What would you do differently?") }}
+{% endfilter %}
 
-# 📋 Problems
-
-{% for rel in problems %}
-- {{ rel.target }}
-{% endfor %}
-{% if not problems %}
-- 
-{% endif %}
-
----
-
-# 💭 Takeaways
-
+{% filter blockquote %}
+[!success]- ✅ Takeaways
+{% if takeaways %}
 {% for point in takeaways %}
 - {{ point }}
 {% endfor %}
-{% if not takeaways %}
-- 
+{% else %}
+- _None recorded yet._
 {% endif %}
+{% endfilter %}
+
+{% filter blockquote %}
+[!example]- 📋 Problems
+{{ m.relation_list(problems, "None recorded yet.") }}
+{% if problems %}
+
+{{ m.relationship_diagram(title, [], problems) }}
+{% endif %}
+{% endfilter %}
+
+{% filter blockquote %}
+[!info]- 🔎 Live Cross-References (Dataview)
+Other contests on the same platform -- track the trend over time.
+
+```dataview
+TABLE rank, rating_change, contest_type
+FROM "Contests"
+WHERE platform = this.platform AND file.name != this.file.name
+SORT start_time DESC
+```
+{% endfilter %}
+
+{% if sources or references %}
+{% filter blockquote %}
+[!quote]- 📚 Sources & References
+{% for s in sources %}
+- {{ s }}
+{% endfor %}
+{% for r in references %}
+- {{ r }}
+{% endfor %}
+{% endfilter %}
+
+{% endif %}
+{% endblock %}

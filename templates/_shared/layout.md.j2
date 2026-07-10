@@ -1,0 +1,12 @@
+{% import "_shared/macros.j2" as m %}
+{% block frontmatter required %}{% endblock %}
+
+{% block body required %}{% endblock %}
+
+---
+
+{% block footer %}
+{% filter blockquote %}
+{{ m.metadata_footer(kind, id, slug, status, created_at, updated_at) }}
+{% endfilter %}
+{% endblock %}

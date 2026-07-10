@@ -1,55 +1,97 @@
+{% extends "_shared/layout.md.j2" %}
+{% import "_shared/macros.j2" as m %}
+
+{% block frontmatter -%}
 ---
 title: "{{ title }}"
 id: "{{ id }}"
-category: "{{ category or '' }}"
-status: "{{ status }}"
+{% if aliases -%}
+aliases:
+{% for a in aliases %}
+  - "{{ a }}"
+{% endfor %}
+{% else -%}
+aliases: []
+{% endif -%}
+{% if tags -%}
 tags:
 {% for tag in tags %}
   - {{ tag }}
 {% endfor %}
+{% else -%}
+tags: []
+{% endif -%}
+category: "{{ category or '' }}"
+difficulty: "{{ difficulty or '' }}"
+status: "{{ status }}"
 created: "{{ created_at }}"
 updated: "{{ updated_at }}"
 ---
+{% endblock %}
 
-# 🔍 Recognition
+{% block body -%}
+# 🔍 {{ title }}
 
-> [!tip]
-> {{ description or "Describe the pattern here." }}
+{% filter blockquote %}
+[!tip]+ Quick Facts
+**Category:** {{ category or "Uncategorized" }}
+{% set difficulty_display = (difficulty | difficulty_emoji) ~ " " ~ difficulty if difficulty else "Not set" -%}
+**Difficulty:** {{ difficulty_display }}
+**Status:** {{ status | status_emoji }} {{ status }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!question]+ 🔍 Recognition
+{{ description | editable_block("description", "Describe the pattern and when it applies.") }}
 
 **Cues that this pattern applies:**
+{% if recognition_cues %}
 {% for cue in recognition_cues %}
 - {{ cue }}
 {% endfor %}
-{% if not recognition_cues %}
-- 
+{% else %}
+- _None recorded yet._
 {% endif %}
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!example]- 🧠 Related Algorithms & Example Problems
+**Related algorithms:**
+{{ m.relation_list(related_algorithms, "None recorded yet.") }}
+**Example problems:**
+{{ m.relation_list(example_problems, "None recorded yet.") }}
+{% if related_algorithms or example_problems %}
 
-# 🧠 Related Algorithms
+{{ m.relationship_diagram(title, [], related_algorithms + example_problems) }}
+{% endif %}
+{% endfilter %}
 
-{% for rel in related_algorithms %}
-- {{ rel.target }}
+{% filter blockquote %}
+[!info]- 🔎 Live Cross-References (Dataview)
+Problems that use this pattern -- computed live by Obsidian.
+
+```dataview
+TABLE platform, difficulty, status
+FROM "Problems"
+WHERE any(patterns, (p) => p.target = this.title)
+SORT rating ASC
+```
+{% endfilter %}
+
+{% if sources or references %}
+{% filter blockquote %}
+[!quote]- 📚 Sources & References
+{% for s in sources %}
+- {{ s }}
 {% endfor %}
-{% if not related_algorithms %}
-- 
-{% endif %}
-
----
-
-# 📚 Example Problems
-
-{% for rel in example_problems %}
-- {{ rel.target }}
+{% for r in references %}
+- {{ r }}
 {% endfor %}
-{% if not example_problems %}
-- 
+{% endfilter %}
+
 {% endif %}
-
----
-
-# 🚀 30 Second Revision
-
-> [!summary]
->
-> -
+{% filter blockquote %}
+[!note]- 📝 Notes
+{{ notes | editable_block("notes", "Anything else worth remembering.") }}
+{% endfilter %}
+{% endblock %}

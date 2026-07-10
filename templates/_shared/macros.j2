@@ -1,0 +1,45 @@
+{# Reusable Jinja macros shared by every dedicated Markdown template.
+
+   These handle the pieces that are genuinely structural (looping over
+   relationships, building a Mermaid graph, the closing metadata
+   callout) -- not simple Markdown syntax, which templates write
+   directly for readability. Callout *bodies* are built with
+   `{% filter blockquote %}...{% endfilter %}` (see
+   handbook.renderers.filters.blockquote) rather than a macro, since
+   forcing arbitrary multi-line Markdown through a macro parameter
+   fights Jinja's whitespace handling more than it helps. #}
+
+{% macro relation_list(relations, empty_text) -%}
+{% if relations %}
+{% for rel in relations %}
+- **{{ rel.target }}**{{ (" — " ~ rel.note) if rel.note else "" }}
+{% endfor %}
+{% else %}
+- {{ empty_text }}
+{% endif %}
+{%- endmacro %}
+
+{% macro relationship_diagram(center, incoming, outgoing) -%}
+{% if incoming or outgoing %}
+```mermaid
+graph LR
+  center["{{ center | mermaid_escape }}"]
+{% for rel in incoming %}
+  in{{ loop.index }}["{{ rel.target | mermaid_escape }}"] -->|{{ rel.type }}| center
+{% endfor %}
+{% for rel in outgoing %}
+  center -->|{{ rel.type }}| out{{ loop.index }}["{{ rel.target | mermaid_escape }}"]
+{% endfor %}
+```
+{% else %}
+_No relationships recorded yet._
+{% endif %}
+{%- endmacro %}
+
+{% macro metadata_footer(kind, id, slug, status, created_at, updated_at) -%}
+[!info]- 📋 Metadata
+**Kind:** {{ kind }}  ·  **Status:** {{ status | status_emoji }} {{ status }}
+**Slug:** `{{ slug }}`
+**Id:** `{{ id }}`
+**Created:** {{ created_at | format_dt }}  ·  **Updated:** {{ updated_at | format_dt }}
+{%- endmacro %}

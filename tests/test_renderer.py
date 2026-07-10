@@ -1,4 +1,9 @@
-"""Tests for MarkdownRenderer."""
+"""Tests for MarkdownRenderer: template selection and the generic fallback.
+
+Deep structural checks (callouts, Mermaid, Dataview, AI-managed markers)
+live in test_beautiful_notes.py -- this file just confirms each type
+resolves to its own dedicated template rather than the generic one.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +21,7 @@ def test_algorithm_uses_dedicated_template():
     content = MarkdownRenderer().render(Algorithm(title="Binary Search"))
 
     assert "Binary Search" in content
-    assert "# 🧠 Intuition" in content  # comes from algorithm.md.j2
+    assert "[!abstract]+ 🧭 Intuition" in content  # comes from algorithm.md.j2
 
 
 def test_problem_uses_dedicated_template():
@@ -25,7 +30,7 @@ def test_problem_uses_dedicated_template():
     )
 
     assert "Two Sum" in content
-    assert "# 🧩 Approach" in content  # comes from problem.md.j2
+    assert "[!abstract]+ 🧩 Approach" in content  # comes from problem.md.j2
     assert 'platform: "LeetCode"' in content
 
 
@@ -33,32 +38,35 @@ def test_pattern_uses_dedicated_template():
     content = MarkdownRenderer().render(Pattern(title="Two Pointers"))
 
     assert "Two Pointers" in content
-    assert "# 🔍 Recognition" in content  # comes from pattern.md.j2
+    assert "[!question]+ 🔍 Recognition" in content  # comes from pattern.md.j2
 
 
 def test_mistake_uses_dedicated_template():
     content = MarkdownRenderer().render(Mistake(title="Off by one"))
 
     assert "Off by one" in content
-    assert "# ⚠️ What Happened" in content  # comes from mistake.md.j2
+    assert "[!danger]+ 💥 What Happened" in content  # comes from mistake.md.j2
 
 
 def test_contest_uses_dedicated_template():
     content = MarkdownRenderer().render(Contest(title="Div 2 Round 999", platform="CF"))
 
     assert "Div 2 Round 999" in content
-    assert "# 📋 Problems" in content  # comes from contest.md.j2
+    assert "[!example]- 📋 Problems" in content  # comes from contest.md.j2
 
 
 def test_topic_uses_dedicated_template():
+    """Topic keeps its Chunk 2 template -- it's out of scope for the
+    Chunk 3 beautification pass, which only covers the five types
+    listed in the spec."""
     content = MarkdownRenderer().render(Topic(title="Graph Theory"))
 
     assert "Graph Theory" in content
-    assert "# 🗺️" in content  # comes from topic.md.j2
+    assert "# 🗺️" in content
 
 
 def test_types_without_a_template_use_generic_fallback():
-    """Every current knowledge type now has a dedicated template, so this
+    """Every current knowledge type has a dedicated template, so this
     exercises the fallback path directly with an ad-hoc, unregistered
     subclass -- the same technique test_folders.py uses to test
     resolve_folder()'s failure path.

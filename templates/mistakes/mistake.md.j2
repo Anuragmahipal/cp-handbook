@@ -1,39 +1,92 @@
+{% extends "_shared/layout.md.j2" %}
+{% import "_shared/macros.j2" as m %}
+
+{% block frontmatter -%}
 ---
 title: "{{ title }}"
 id: "{{ id }}"
-category: "{{ category }}"
-occurrences: {{ occurrences }}
-status: "{{ status }}"
+{% if aliases -%}
+aliases:
+{% for a in aliases %}
+  - "{{ a }}"
+{% endfor %}
+{% else -%}
+aliases: []
+{% endif -%}
+{% if tags -%}
 tags:
 {% for tag in tags %}
   - {{ tag }}
 {% endfor %}
+{% else -%}
+tags: []
+{% endif -%}
+category: "{{ category }}"
+occurrences: {{ occurrences }}
+status: "{{ status }}"
 created: "{{ created_at }}"
 updated: "{{ updated_at }}"
 ---
+{% endblock %}
 
-# ⚠️ What Happened
+{% block body -%}
+# ⚠️ {{ title }}
 
-> [!warning]
-> {{ cause or "Describe the mistake here." }}
+{% filter blockquote %}
+[!tip]+ Quick Facts
+**Category:** {{ category }}
+**Occurrences:** {{ occurrences }}{{ " — this keeps happening, worth drilling into" if occurrences > 1 else "" }}
 
----
+**Status:** {{ status | status_emoji }} {{ status }}
+{% endfilter %}
 
-# 🛡️ Prevention
+{% filter blockquote %}
+[!danger]+ 💥 What Happened
+{{ cause | editable_block("cause", "Describe the mistake -- what went wrong and why.") }}
+{% endfilter %}
 
-> [!tip]
-> {{ prevention or "How to avoid this next time." }}
+{% filter blockquote %}
+[!success]+ 🛡️ Prevention
+{{ prevention | editable_block("prevention", "How will you avoid this next time?") }}
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!example]- 📚 Where It Happened
+**Problems:**
+{{ m.relation_list(related_problems, "None recorded yet.") }}
+**Algorithms:**
+{{ m.relation_list(related_algorithms, "None recorded yet.") }}
+{% if related_problems or related_algorithms %}
 
-# 📚 Where It Happened
-
-{% for rel in related_problems %}
-- {{ rel.target }}
-{% endfor %}
-{% for rel in related_algorithms %}
-- {{ rel.target }}
-{% endfor %}
-{% if not related_problems and not related_algorithms %}
-- 
+{{ m.relationship_diagram(title, [], related_problems + related_algorithms) }}
 {% endif %}
+{% endfilter %}
+
+{% filter blockquote %}
+[!info]- 🔎 Live Cross-References (Dataview)
+Other mistakes in the same category -- worth spotting the pattern.
+
+```dataview
+LIST
+FROM "Mistakes"
+WHERE category = this.category AND file.name != this.file.name
+```
+{% endfilter %}
+
+{% if sources or references %}
+{% filter blockquote %}
+[!quote]- 📚 Sources & References
+{% for s in sources %}
+- {{ s }}
+{% endfor %}
+{% for r in references %}
+- {{ r }}
+{% endfor %}
+{% endfilter %}
+
+{% endif %}
+{% filter blockquote %}
+[!note]- 📝 Notes
+{{ notes | editable_block("notes", "Anything else worth remembering.") }}
+{% endfilter %}
+{% endblock %}

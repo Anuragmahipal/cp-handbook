@@ -1,59 +1,116 @@
+{% extends "_shared/layout.md.j2" %}
+{% import "_shared/macros.j2" as m %}
+
+{% block frontmatter -%}
 ---
 title: "{{ title }}"
 id: "{{ id }}"
+{% if aliases -%}
+aliases:
+{% for a in aliases %}
+  - "{{ a }}"
+{% endfor %}
+{% else -%}
+aliases: []
+{% endif -%}
+{% if tags -%}
 tags:
 {% for tag in tags %}
   - {{ tag }}
 {% endfor %}
+{% else -%}
+tags: []
+{% endif -%}
+category: "{{ category or '' }}"
+difficulty: "{{ difficulty or '' }}"
+status: "{{ status }}"
 created: "{{ created_at }}"
 updated: "{{ updated_at }}"
 ---
+{% endblock %}
 
-# 🧠 Intuition
+{% block body -%}
+# 🧠 {{ title }}
 
-> [!tip]
-> Explain the intuition here.
+{% filter blockquote %}
+[!tip]+ Quick Facts
+{% set difficulty_display = (difficulty | difficulty_emoji) ~ " " ~ difficulty if difficulty else "Not set" -%}
+**Category:** {{ category or "Uncategorized" }}
+**Difficulty:** {{ difficulty_display }}
+**Status:** {{ status | status_emoji }} {{ status }}
+**Time:** `{{ time_complexity or "?" }}`  ·  **Space:** `{{ space_complexity or "?" }}`
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!abstract]+ 🧭 Intuition
+{{ intuition | editable_block("intuition", "Explain the core idea in your own words.") }}
+{% endfilter %}
 
-# 🎯 Key Idea
-
----
-
-# 🎨 Visualization
-
-```mermaid
-flowchart LR
-
-A[Input]
-```
-
----
-
-# ⚠️ Pitfalls
-
-- 
-
----
-
-# 💻 C++ Implementation
+{% filter blockquote %}
+[!example]- 💻 Implementation
+{{ implementation | editable_block("implementation", "Notes on implementing it -- gotchas, invariants, template code.") }}
 
 ```cpp
 
 ```
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!warning]- ⚠️ Pitfalls
+{% if pitfalls %}
+{% for pitfall in pitfalls %}
+- {{ pitfall }}
+{% endfor %}
+{% else %}
+- _None recorded yet._
+{% endif %}
+{% endfilter %}
 
-# 📚 Related Problems
+{% filter blockquote %}
+[!example]- 🗺️ Relationships
+**Prerequisites:**
+{{ m.relation_list(prerequisites, "None -- this stands on its own.") }}
+**Appears in:**
+{{ m.relation_list(related_problems, "No linked problems yet.") }}
+{% if prerequisites or related_problems %}
 
-- 
+{{ m.relationship_diagram(title, prerequisites, related_problems) }}
+{% endif %}
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!info]- 🔎 Live Cross-References (Dataview)
+Problems that use this algorithm, and mistakes made while applying it --
+computed live by Obsidian, not by the handbook itself.
 
-# 🚀 30 Second Revision
+```dataview
+TABLE platform, difficulty, status, rating
+FROM "Problems"
+WHERE any(algorithms, (a) => a.target = this.title) OR any(algorithms, (a) => contains(this.aliases, a.target))
+SORT rating ASC
+```
 
-> [!summary]
->
-> -
-> -
-> -
+```dataview
+LIST
+FROM "Mistakes"
+WHERE any(related_algorithms, (a) => a.target = this.title)
+```
+{% endfilter %}
+
+{% if sources or references %}
+{% filter blockquote %}
+[!quote]- 📚 Sources & References
+{% for s in sources %}
+- {{ s }}
+{% endfor %}
+{% for r in references %}
+- {{ r }}
+{% endfor %}
+{% endfilter %}
+
+{% endif %}
+{% filter blockquote %}
+[!note]- 📝 Notes
+{{ notes | editable_block("notes", "Anything else worth remembering.") }}
+{% endfilter %}
+{% endblock %}

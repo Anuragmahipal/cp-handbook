@@ -1,62 +1,100 @@
+{% extends "_shared/layout.md.j2" %}
+{% import "_shared/macros.j2" as m %}
+
+{% block frontmatter -%}
 ---
 title: "{{ title }}"
 id: "{{ id }}"
-platform: "{{ platform }}"
-difficulty: "{{ difficulty or '' }}"
-rating: {{ rating if rating is not none else "null" }}
-status: "{{ status }}"
-solved: {{ solved | lower }}
+{% if aliases -%}
+aliases:
+{% for a in aliases %}
+  - "{{ a }}"
+{% endfor %}
+{% else -%}
+aliases: []
+{% endif -%}
+{% if tags -%}
 tags:
 {% for tag in tags %}
   - {{ tag }}
 {% endfor %}
+{% else -%}
+tags: []
+{% endif -%}
+platform: "{{ platform }}"
+contest: "{{ contest }}"
+index: "{{ index }}"
+contest_id: "{{ contest_id or '' }}"
+url: "{{ url }}"
+rating: {{ rating if rating is not none else "null" }}
+difficulty: "{{ difficulty or '' }}"
+status: "{{ status }}"
+source: "{{ source }}"
+solved: {{ solved | lower }}
 created: "{{ created_at }}"
 updated: "{{ updated_at }}"
 ---
+{% endblock %}
 
-# {{ title }}
+{% block body -%}
+# 🧩 {{ title }}
 
-**{{ platform }}** · {{ contest }} · Problem {{ index }}
+{% filter blockquote %}
+[!tip]+ Quick Facts
+**Platform:** {{ platform | platform_emoji }} {{ platform }}  ·  **Contest:** {{ contest }} — Problem {{ index }}
+{% set difficulty_display = (difficulty | difficulty_emoji) ~ " " ~ difficulty if difficulty else "Not set" -%}
+**Difficulty:** {{ difficulty_display }}  ·  **Rating:** {{ rating if rating is not none else "?" }}
+**Status:** {{ status | status_emoji }} {{ status }}  ·  **Source:** {{ source }}
+{% set solved_display = "✅ Solved" if solved else "❌ Unsolved" -%}
+**Result:** {{ solved_display }}  ·  **Attempts:** {{ attempts }}  ·  **Time spent:** {{ time_spent_minutes | format_minutes }}
 {% if url %}
-[Problem Link]({{ url }})
+**Link:** {{ url }}
 {% endif %}
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!abstract]+ 🧩 Approach
+{{ notes | editable_block("approach", "Write your approach here -- what was the key insight?") }}
+{% endfilter %}
 
-# 🧩 Approach
+{% filter blockquote %}
+[!example]- 🧠 Algorithms & Patterns Used
+**Algorithms:**
+{{ m.relation_list(algorithms, "None recorded yet.") }}
+**Patterns:**
+{{ m.relation_list(patterns, "None recorded yet.") }}
+{% if algorithms or patterns %}
 
-> [!tip]
-> Explain the approach here.
-
----
-
-# 🧠 Algorithms & Patterns Used
-
-{% for rel in algorithms %}
-- {{ rel.target }}
-{% endfor %}
-{% for rel in patterns %}
-- {{ rel.target }}
-{% endfor %}
-{% if not algorithms and not patterns %}
-- 
+{{ m.relationship_diagram(title, [], algorithms + patterns) }}
 {% endif %}
+{% endfilter %}
 
----
+{% filter blockquote %}
+[!danger]- ⚠️ Mistakes Made Here
+{{ m.relation_list(mistakes, "None yet -- nice.") }}
+{% endfilter %}
 
-# ⚠️ Mistakes Made Here
+{% filter blockquote %}
+[!info]- 🔎 Live Cross-References (Dataview)
+Other problems from the same contest -- computed live by Obsidian.
 
-{% for rel in mistakes %}
-- {{ rel.target }}
+```dataview
+LIST
+FROM "Problems"
+WHERE contest = this.contest AND platform = this.platform AND file.name != this.file.name
+```
+{% endfilter %}
+
+{% if sources or references %}
+{% filter blockquote %}
+[!quote]- 📚 Sources & References
+{% for s in sources %}
+- {{ s }}
 {% endfor %}
-{% if not mistakes %}
-- 
+{% for r in references %}
+- {{ r }}
+{% endfor %}
+{% endfilter %}
+
 {% endif %}
-
----
-
-# 🚀 30 Second Revision
-
-> [!summary]
->
-> -
+{% endblock %}
