@@ -1,0 +1,55 @@
+---
+title: "{{ title }}"
+id: "{{ id }}"
+category: "{{ category or '' }}"
+status: "{{ status }}"
+tags:
+{% for tag in tags %}
+  - {{ tag }}
+{% endfor %}
+created: "{{ created_at }}"
+updated: "{{ updated_at }}"
+---
+
+# 🔍 Recognition
+
+> [!tip]
+> {{ description or "Describe the pattern here." }}
+
+**Cues that this pattern applies:**
+{% for cue in recognition_cues %}
+- {{ cue }}
+{% endfor %}
+{% if not recognition_cues %}
+- 
+{% endif %}
+
+---
+
+# 🧠 Related Algorithms
+
+{% for rel in related_algorithms %}
+- {{ rel.target }}
+{% endfor %}
+{% if not related_algorithms %}
+- 
+{% endif %}
+
+---
+
+# 📚 Example Problems
+
+{% for rel in example_problems %}
+- {{ rel.target }}
+{% endfor %}
+{% if not example_problems %}
+- 
+{% endif %}
+
+---
+
+# 🚀 30 Second Revision
+
+> [!summary]
+>
+> -

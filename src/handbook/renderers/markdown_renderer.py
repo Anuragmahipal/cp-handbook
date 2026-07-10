@@ -12,7 +12,15 @@ from __future__ import annotations
 import yaml
 
 from handbook.core.renderer import Renderer
-from handbook.models import Algorithm, KnowledgeItem
+from handbook.models import (
+    Algorithm,
+    Contest,
+    KnowledgeItem,
+    Mistake,
+    Pattern,
+    Problem,
+    Topic,
+)
 from handbook.template_engine import render as render_jinja_template
 
 
@@ -23,6 +31,11 @@ class MarkdownRenderer(Renderer):
 
     _TEMPLATES: dict[type[KnowledgeItem], str] = {
         Algorithm: "algorithms/algorithm.md.j2",
+        Problem: "problems/problem.md.j2",
+        Pattern: "patterns/pattern.md.j2",
+        Mistake: "mistakes/mistake.md.j2",
+        Contest: "contests/contest.md.j2",
+        Topic: "topics/topic.md.j2",
     }
 
     def render(self, item: KnowledgeItem) -> str:

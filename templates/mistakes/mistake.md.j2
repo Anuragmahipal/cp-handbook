@@ -1,0 +1,39 @@
+---
+title: "{{ title }}"
+id: "{{ id }}"
+category: "{{ category }}"
+occurrences: {{ occurrences }}
+status: "{{ status }}"
+tags:
+{% for tag in tags %}
+  - {{ tag }}
+{% endfor %}
+created: "{{ created_at }}"
+updated: "{{ updated_at }}"
+---
+
+# ⚠️ What Happened
+
+> [!warning]
+> {{ cause or "Describe the mistake here." }}
+
+---
+
+# 🛡️ Prevention
+
+> [!tip]
+> {{ prevention or "How to avoid this next time." }}
+
+---
+
+# 📚 Where It Happened
+
+{% for rel in related_problems %}
+- {{ rel.target }}
+{% endfor %}
+{% for rel in related_algorithms %}
+- {{ rel.target }}
+{% endfor %}
+{% if not related_problems and not related_algorithms %}
+- 
+{% endif %}

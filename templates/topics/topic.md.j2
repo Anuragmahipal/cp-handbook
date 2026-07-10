@@ -1,0 +1,50 @@
+---
+title: "{{ title }}"
+id: "{{ id }}"
+area: "{{ area or '' }}"
+status: "{{ status }}"
+tags:
+{% for tag in tags %}
+  - {{ tag }}
+{% endfor %}
+created: "{{ created_at }}"
+updated: "{{ updated_at }}"
+---
+
+# 🗺️ {{ title }}
+
+> [!abstract]
+> {{ description or "Describe this topic area here." }}
+
+---
+
+# 🧠 Algorithms
+
+{% for rel in algorithms %}
+- {{ rel.target }}
+{% endfor %}
+{% if not algorithms %}
+- 
+{% endif %}
+
+---
+
+# 🔍 Patterns
+
+{% for rel in patterns %}
+- {{ rel.target }}
+{% endfor %}
+{% if not patterns %}
+- 
+{% endif %}
+
+---
+
+# 📚 Key Problems
+
+{% for rel in key_problems %}
+- {{ rel.target }}
+{% endfor %}
+{% if not key_problems %}
+- 
+{% endif %}

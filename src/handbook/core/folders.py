@@ -8,7 +8,15 @@ only ever requires one new registry entry here.
 from __future__ import annotations
 
 from handbook.exceptions import StorageError
-from handbook.models import Algorithm, KnowledgeItem, Mistake, Pattern, Problem
+from handbook.models import (
+    Algorithm,
+    Contest,
+    KnowledgeItem,
+    Mistake,
+    Pattern,
+    Problem,
+    Topic,
+)
 
 # Registry of knowledge type -> vault-relative folder name.
 # Keyed by exact class; resolve_folder() walks the MRO so subclasses of a
@@ -18,6 +26,8 @@ _FOLDER_MAP: dict[type[KnowledgeItem], str] = {
     Problem: "Problems",
     Pattern: "Patterns",
     Mistake: "Mistakes",
+    Contest: "Contests",
+    Topic: "Topics",
 }
 
 

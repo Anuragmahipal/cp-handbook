@@ -1,0 +1,44 @@
+---
+title: "{{ title }}"
+id: "{{ id }}"
+platform: "{{ platform }}"
+contest_type: "{{ contest_type }}"
+rank: {{ rank if rank is not none else "null" }}
+rating_change: {{ rating_change if rating_change is not none else "null" }}
+status: "{{ status }}"
+tags:
+{% for tag in tags %}
+  - {{ tag }}
+{% endfor %}
+created: "{{ created_at }}"
+updated: "{{ updated_at }}"
+---
+
+# 🏆 {{ title }}
+
+**{{ platform }}** · {{ contest_type }}
+{% if url %}
+[Contest Link]({{ url }})
+{% endif %}
+
+---
+
+# 📋 Problems
+
+{% for rel in problems %}
+- {{ rel.target }}
+{% endfor %}
+{% if not problems %}
+- 
+{% endif %}
+
+---
+
+# 💭 Takeaways
+
+{% for point in takeaways %}
+- {{ point }}
+{% endfor %}
+{% if not takeaways %}
+- 
+{% endif %}

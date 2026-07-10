@@ -45,17 +45,58 @@ Every knowledge type is persisted the same way — the caller never
 supplies a folder, filename, or template:
 
 ```python
-from handbook.models import Algorithm, Problem, Pattern, Mistake
+from handbook.models import Algorithm, Problem, Pattern, Mistake, Contest, Topic
 
 hb.store(Algorithm(title="Binary Exponentiation"))
 hb.store(Problem(title="Two Sum", platform="LeetCode", contest="Easy", index="1"))
 hb.store(Pattern(title="Sliding Window"))
 hb.store(Mistake(title="Off-by-one in binary search"))
+hb.store(Contest(title="Educational Round 100", platform="Codeforces"))
+hb.store(Topic(title="Graph Theory"))
 ```
 
 `Handbook.create_algorithm(title, **fields)` still exists as a thin
 convenience wrapper, but it now just calls `store(Algorithm(...))`
 internally — there is no separate file-writing path for algorithms.
+
+## Knowledge model layer
+
+Every model inherits `KnowledgeItem`, which carries the metadata that's
+meaningful for *any* CP knowledge object:
+
+* **identity** — `id`, `title`, `aliases`, and a computed `slug`
+  (the same canonical, filesystem-safe identifier storage uses for
+  filenames — derived once, not recomputed independently elsewhere).
+* **classification** — `tags`, `difficulty` (`Difficulty` enum),
+  `status` (`KnowledgeStatus` enum).
+* **provenance** — `sources`, `references`.
+* **relationships** — `prerequisites` and `related_items`: lists of
+  first-class `Relation(target, type, note)` objects, not free-form
+  Markdown links. Every type-specific relationship field (`Problem.algorithms`,
+  `Pattern.related_algorithms`, `Contest.problems`, ...) is `list[Relation]`
+  too, using the same `RelationType` vocabulary (`prerequisite`, `uses`,
+  `appears_in`, `contains`, ...). Plain strings are also accepted as
+  shorthand — `algorithms=["Binary Search"]` becomes
+  `[Relation(target="Binary Search", type=RelationType.USES)]` automatically.
+* **free text** — `notes`.
+* **timestamps** — `created_at`, `updated_at`.
+
+Six concrete types build on this: `Algorithm`, `Problem`, `Pattern`,
+`Mistake`, `Contest`, `Topic` — see `src/handbook/models/*.py` for each
+type's own fields. Enums live in `models/enums.py` and are lenient:
+`Platform("cf")` and `Platform("Codeforces")` both resolve to
+`Platform.CODEFORCES`, so callers (human or AI) don't need to know the
+exact canonical spelling, but every stored object still ends up with one
+canonical, typed value rather than a free-form string.
+
+```python
+lca = Algorithm(title="LCA", prerequisites=["Binary Lifting"])
+hld = Algorithm(title="Heavy-Light Decomposition", prerequisites=["LCA"])
+```
+
+`lca.prerequisites[0]` is `Relation(target="Binary Lifting", type=RelationType.PREREQUISITE)`
+— a typed edge a future graph/search layer can walk directly, not a
+Markdown `[[Binary Lifting]]` link to be parsed later.
 
 ## Architecture
 
@@ -105,6 +146,8 @@ Algorithm -> Algorithms/
 Problem   -> Problems/
 Pattern   -> Patterns/
 Mistake   -> Mistakes/
+Contest   -> Contests/
+Topic     -> Topics/
 ```
 
 ## Testing
@@ -116,8 +159,11 @@ uv run ruff check src tests
 
 ## Out of scope for this chunk
 
-Search, auto-linking, MCP, AI features, Dataview/Mermaid integration,
-and the actual Problems/Patterns/Mistakes authoring workflows are not
-part of the persistence engine and are intentionally not implemented
-here. Their models exist and are fully storable already; their features
-are not.
+Search, AI extraction, embeddings, MCP, Dataview/Mermaid integration,
+auto-linking, duplicate detection (beyond the id/slug policy above), and
+revision scheduling are not part of the knowledge model layer and are
+intentionally not implemented here. The models are deliberately built
+*for* those features — every relationship is already typed data
+(`Relation`/`RelationType`) rather than free-form Markdown links — but
+resolving those relationships into an actual graph, index, or scheduler
+is future work, not this chunk's.

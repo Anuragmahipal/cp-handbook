@@ -6,7 +6,15 @@ import pytest
 
 from handbook.core.folders import resolve_folder
 from handbook.exceptions import StorageError
-from handbook.models import Algorithm, KnowledgeItem, Mistake, Pattern, Problem
+from handbook.models import (
+    Algorithm,
+    Contest,
+    KnowledgeItem,
+    Mistake,
+    Pattern,
+    Problem,
+    Topic,
+)
 
 
 @pytest.mark.parametrize(
@@ -16,6 +24,8 @@ from handbook.models import Algorithm, KnowledgeItem, Mistake, Pattern, Problem
         (Problem(title="X", platform="CF", contest="123", index="A"), "Problems"),
         (Pattern(title="X"), "Patterns"),
         (Mistake(title="X"), "Mistakes"),
+        (Contest(title="X", platform="CF"), "Contests"),
+        (Topic(title="X"), "Topics"),
     ],
 )
 def test_known_types_resolve_to_their_folder(item: KnowledgeItem, expected_folder: str):

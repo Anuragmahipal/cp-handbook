@@ -1,0 +1,62 @@
+---
+title: "{{ title }}"
+id: "{{ id }}"
+platform: "{{ platform }}"
+difficulty: "{{ difficulty or '' }}"
+rating: {{ rating if rating is not none else "null" }}
+status: "{{ status }}"
+solved: {{ solved | lower }}
+tags:
+{% for tag in tags %}
+  - {{ tag }}
+{% endfor %}
+created: "{{ created_at }}"
+updated: "{{ updated_at }}"
+---
+
+# {{ title }}
+
+**{{ platform }}** · {{ contest }} · Problem {{ index }}
+{% if url %}
+[Problem Link]({{ url }})
+{% endif %}
+
+---
+
+# 🧩 Approach
+
+> [!tip]
+> Explain the approach here.
+
+---
+
+# 🧠 Algorithms & Patterns Used
+
+{% for rel in algorithms %}
+- {{ rel.target }}
+{% endfor %}
+{% for rel in patterns %}
+- {{ rel.target }}
+{% endfor %}
+{% if not algorithms and not patterns %}
+- 
+{% endif %}
+
+---
+
+# ⚠️ Mistakes Made Here
+
+{% for rel in mistakes %}
+- {{ rel.target }}
+{% endfor %}
+{% if not mistakes %}
+- 
+{% endif %}
+
+---
+
+# 🚀 30 Second Revision
+
+> [!summary]
+>
+> -
