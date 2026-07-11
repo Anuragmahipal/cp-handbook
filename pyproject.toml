@@ -24,6 +24,9 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.scripts]
+cp-handbook = "handbook.sync.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/handbook", "src/mcp_server"]
 

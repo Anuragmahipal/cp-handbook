@@ -213,6 +213,132 @@ Contest   -> Contests/
 Topic     -> Topics/
 ```
 
+## Knowledge Graph
+
+The handbook is no longer just a collection of rendered Markdown files
+— `handbook.graph` builds an in-memory **Knowledge Graph** on top of the
+knowledge model layer: the canonical runtime representation of every
+relationship, used by search, duplicate detection, and any future
+feature that needs to walk the vault's structure without re-parsing
+Markdown.
+
+The graph is a **derived index** — the vault remains the source of
+truth. Nothing in this layer touches the filesystem; `GraphBuilder`
+takes a list of already-parsed `KnowledgeItem` objects (however they got
+loaded) and produces a `KnowledgeGraph`:
+
+```python
+from handbook.graph import GraphBuilder
+
+graph = GraphBuilder(items).build()
+
+graph.get("Binary Lifting")                    # by id, slug, alias, or title
+graph.related("Two Sum")                        # every edge touching a node
+graph.backlinks("Segment Tree")                  # computed from edges, never from Markdown
+graph.reachable(problem.id)                      # everything reachable in the graph
+graph.shortest_path(a.id, b.id)
+graph.topological_sort()                         # raises GraphCycleError if not a DAG
+
+graph.search_engine().search("segment tree")
+graph.duplicate_detector().find_duplicates()
+
+graph.export_json()
+graph.export_dot()
+graph.export_networkx()                          # nx.node_link_graph(...)-compatible dict
+```
+
+* **`graph/node.py`, `graph/edge.py`** — `Node` is a lightweight
+  projection of a `KnowledgeItem`'s identity/classification metadata
+  (never its rendered body). `Edge` is a typed, directed connection
+  derived from a `Relation`, carrying confidence, provenance, and a
+  `derived` flag for edges the graph invents itself later. Multiple
+  edges between the same pair of nodes are supported.
+* **`graph/index.py`** — `GraphIndex` is the single in-memory store of
+  nodes/edges and every lookup index (id, slug, alias, title, tag, kind,
+  status, adjacency) built on top of them. Every other class below reads
+  from one `GraphIndex` rather than keeping its own copy of the data.
+* **`graph/resolver.py`** — `Resolver` turns a raw `Relation.target`
+  string into a node: id → slug → alias → title, in that order, falling
+  back to a deterministic **shadow node** for anything unresolved, so a
+  dangling reference stays queryable instead of disappearing.
+* **`graph/builder.py`** — `GraphBuilder` discovers every
+  `list[Relation]` field on an item *generically*, via its Pydantic
+  schema, rather than hardcoding `Problem.algorithms`,
+  `Contest.problems`, etc. one by one — a new knowledge type can add a
+  new relation field without this class ever changing. `update()`
+  supports incremental rebuilds: recomputing just the edges sourced by
+  the items that changed.
+* **`graph/traversal.py`** — `Traversal` is pure, read-only graph
+  algorithms (`neighbors`, `reachable`, `shortest_path`,
+  `topological_sort`, `cycle_detection`, `subgraph`, ...), kept
+  deliberately separate from construction. `topological_sort` and
+  `cycle_detection` only consider `FORWARD` edges — a `BIDIRECTIONAL`
+  edge (`similar_to`, `related`) describes a symmetric relationship, not
+  a hierarchy, and would make any pair it connects trivially cyclic.
+* **`graph/search.py`** — `SearchEngine` ranks title/alias/tag/metadata
+  matches (exact → prefix → substring → fuzzy), plus dedicated
+  `prefix()` and `by_relation()` (relation-type queries) methods.
+* **`graph/duplicates.py`** — `DuplicateDetector` finds duplicate
+  titles, duplicate aliases, near-duplicate names (string similarity),
+  and duplicate edges. `extra_detectors` is the seam a future semantic/
+  embeddings-based detector plugs into without this class changing.
+* **`graph/export.py`** — `Exporter` serializes to JSON, Graphviz DOT,
+  and a NetworkX-compatible node-link structure, independent of every
+  algorithm above it.
+* **`graph/graph.py`** — `KnowledgeGraph` composes all of the above into
+  one convenient facade.
+
+
+
+## Codeforces Sync
+
+This is the project's first end-to-end usable workflow: solve a problem
+on Codeforces, and get a stored knowledge-base entry plus a revision
+note out the other end, with zero manual note-taking.
+
+```bash
+uv run cp-handbook init    # configure your Codeforces handle + vault location
+uv run cp-handbook sync    # fetch newly accepted submissions, update the vault
+uv run cp-handbook status  # see what's configured and what's been synced
+```
+
+`sync` runs the full pipeline for every newly accepted submission,
+using the *existing* engine at every stage — nothing here reimplements
+storage, rendering, or the graph:
+
+```text
+Submission (Codeforces)
+    -> Problem object     (handbook.sync.mapping: rating -> Difficulty,
+                            participantType -> ProblemSource, tags ->
+                            algorithm topic names)
+    -> Knowledge object    (models.Problem, a real KnowledgeItem)
+    -> Store               (Handbook.store — same path Chunk 2/3 use)
+    -> Graph update         (GraphBuilder, rebuilt over every problem
+                            synced so far, not just this run's)
+    -> Revision note        (a concise, structured intermediate format —
+                            see below — written to `Revision Notes/`)
+```
+
+Sync is safe to run repeatedly: a submission id already recorded is
+never reprocessed, and re-solving an already-known problem (say, in a
+different language) never creates a second note. State lives at
+`<vault>/.handbook/sync/state.json`, following the same "small JSON
+file, atomic write" convention `handbook.core.index` already
+established.
+
+**Revision notes are intentionally not final notes.** Only what's
+mechanically derivable from Codeforces' own data is filled in
+automatically — the problem's metadata, its tags/rating as a
+"recognition" cue, and a factual count of failed attempts before the
+AC. The sections that require actually understanding the solution
+(**Core Idea**, **Complexity**, **Key Observation**, **Implementation
+Trick**) are left blank, marked clearly in the rendered Markdown, for a
+human to fill in while converting the note into a handwritten one. This
+prototype does no AI reasoning and does no handwriting generation —
+both are explicitly future work; see `handbook/sync/revision_note.py`
+for the intermediate format a future handwriting renderer would
+consume.
+
 ## Testing
 
 ```bash
@@ -233,3 +359,29 @@ indexing, and duplicate detection are explicitly not part of this pass.
 Mermaid diagrams and Dataview queries are rendered as static text from
 each item's own fields; nothing here builds a cross-note index, and
 storage still does not read a file back before overwriting it.
+
+**Knowledge Graph (Chunk 4A):** dashboards, a recommendation engine,
+learning paths, a revision engine, weak-topic discovery, AI/embeddings/
+LLM-backed semantic duplicate detection, and MCP are all explicitly not
+part of this pass — this chunk is the graph *engine* those features will
+be built on top of, not any of the features themselves. `DuplicateDetector`
+is exact/fuzzy-string-based only, with a pluggable seam
+(`extra_detectors`) for a later semantic pass. The graph is also not yet
+wired up to a real vault loader — `GraphBuilder` takes `KnowledgeItem`
+instances directly; reading them back from the Markdown vault on disk is
+future work.
+
+**Codeforces Sync:** AI reasoning, MCP, handwriting generation, and any
+recommendation engine are explicitly not part of this pass. Revision
+notes leave Core Idea/Complexity/Key Observation/Implementation Trick
+blank by design — no attempt is made to infer them, mechanically or
+otherwise. Only `Problem` KnowledgeItems are created (no `Algorithm`/
+`Pattern`/`Mistake` items); tags become `Problem.algorithms` relations
+by name, which the graph resolves to shadow nodes until a real note for
+that topic exists. There's still no vault loader: the graph is rebuilt
+each run from `SyncState`'s own record of previously-synced problems,
+not by reading the vault's rendered Markdown back in. Contest names are
+not resolved (the numeric Codeforces contest id is used as-is) — a
+`contest.list` lookup would be a natural, cheap follow-up. Only
+Codeforces is supported; other judges (AtCoder, LeetCode, etc.) would
+need their own client alongside `handbook.sync.codeforces`.

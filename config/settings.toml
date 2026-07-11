@@ -10,3 +10,6 @@ path = "templates"
 [notes]
 default_author = "Anurag"
 auto_backlinks = true
+
+[codeforces]
+handle = ""

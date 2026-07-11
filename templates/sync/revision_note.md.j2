@@ -1,0 +1,52 @@
+{#- Revision note template: intentionally concise, unlike the full
+   Beautiful Note templates under templates/problems/ etc. Every section
+   is a callout with at most a couple of lines -- this is scaffolding
+   for a later handwriting-generation pass, not a note meant to be read
+   at length on its own. -#}
+# 📝 {{ problem_title }}
+
+{% filter blockquote %}
+[!tip]+ Problem
+**Platform:** {{ platform | platform_emoji }} {{ platform }}  ·  **Contest:** {{ contest }} — Problem {{ index }}
+**Rating:** {{ rating if rating is not none else "?" }}  ·  **Source:** {{ source }}
+{% if tags %}
+**Tags:** {{ tags | join(", ") }}
+{% endif %}
+{% if url %}
+**Link:** {{ url }}
+{% endif %}
+**Solved:** {{ solved_at | format_dt }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!abstract]+ Core Idea
+{{ core_idea | editable_block("core_idea", "Describe the core idea in 1-2 lines.") }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!question]+ Recognition
+{{ recognition if recognition else "—" }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!danger]+ Mistake
+{{ mistake if mistake else "—" }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!note]+ Complexity
+{{ complexity | editable_block("complexity", "State the time/space complexity.") }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!example]+ Key Observation
+{{ key_observation | editable_block("key_observation", "What was the one insight that unlocked this?") }}
+{% endfilter %}
+
+{% filter blockquote %}
+[!info]+ Implementation Trick
+{{ implementation_trick | editable_block("implementation_trick", "Any fiddly implementation detail worth remembering?") }}
+{% endfilter %}
+
+---
+_Generated {{ generated_at | format_dt }} by `cp-handbook sync`. This is an intermediate format, not a final handwritten note._

@@ -1,0 +1,176 @@
+"""The sync pipeline: Codeforces submission -> vault -> graph -> revision note.
+
+Every stage below calls straight into the *existing* engine
+(:meth:`~handbook.handbook.Handbook.store`,
+:class:`~handbook.graph.GraphBuilder`,
+:func:`handbook.template_engine.render` via
+:mod:`handbook.sync.note_writer`) rather than reimplementing any of it.
+This module's only job is orchestration and deduplication:
+
+.. code-block:: text
+
+    Submission (Codeforces)
+        -> Problem object          (handbook.sync.mapping)
+        -> Knowledge object        (models.Problem, a KnowledgeItem)
+        -> Store                   (Handbook.store)
+        -> Graph update            (GraphBuilder, over every known Problem)
+        -> Revision note           (handbook.sync.revision_note / note_writer)
+"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+
+from handbook.exceptions import DuplicateItemError
+from handbook.graph import DuplicateReport, GraphBuilder, KnowledgeGraph
+from handbook.handbook import Handbook
+from handbook.models import Problem
+from handbook.sync.codeforces import CFSubmission, CodeforcesClient
+from handbook.sync.mapping import build_problem_item
+from handbook.sync.note_writer import WrittenNote, write_revision_note
+from handbook.sync.revision_note import RevisionNote, generate_revision_note
+from handbook.sync.state import SyncState
+from handbook.utils.filesystem import atomic_write
+
+_GRAPH_EXPORT_RELATIVE_PATH = Path(".handbook") / "graph.json"
+
+
+@dataclass(frozen=True, slots=True)
+class SyncedProblem:
+    """One newly-imported problem: everything the CLI needs to report on it."""
+
+    item: Problem
+    vault_path: Path
+    note: RevisionNote
+    note_paths: WrittenNote
+
+
+@dataclass(frozen=True, slots=True)
+class SyncReport:
+    """Everything ``cp-handbook sync`` needs to print a summary."""
+
+    handle: str
+    fetched_submissions: int
+    newly_accepted: int
+    imported: list[SyncedProblem] = field(default_factory=list)
+    already_known: int = 0
+    total_known_problems: int = 0
+    graph_node_count: int = 0
+    graph_edge_count: int = 0
+    duplicate_report: DuplicateReport | None = None
+
+
+def run_sync(
+    handle: str,
+    *,
+    vault_root: Path,
+    client: CodeforcesClient,
+    count: int = 10_000,
+) -> SyncReport:
+    """Run one full sync of ``handle``'s accepted submissions into ``vault_root``.
+
+    Safe to call repeatedly: a submission id already recorded in this
+    vault's :class:`~handbook.sync.state.SyncState` is never
+    reprocessed, and a Codeforces problem that already has a Problem
+    note in this vault never gets a second one, even if the handle
+    solved it again (e.g. resubmitted in another language).
+    """
+    state = SyncState(vault_root)
+    handbook = Handbook(root=vault_root)
+
+    submissions = client.fetch_submissions(handle, count=count)
+
+    by_problem_key: dict[str, list[CFSubmission]] = defaultdict(list)
+    for submission in submissions:
+        by_problem_key[submission.problem.problem_key].append(submission)
+
+    accepted = [s for s in submissions if s.accepted]
+    new_accepted = sorted(
+        (s for s in accepted if not state.has_imported(s.id)),
+        key=lambda s: s.creation_time,
+    )
+
+    imported: list[SyncedProblem] = []
+    for submission in new_accepted:
+        problem_key = submission.problem.problem_key
+        state.mark_imported(submission.id)
+
+        if state.has_problem(problem_key):
+            # This Codeforces problem already has a note in this vault
+            # (e.g. the handle re-solved it in a different language).
+            # The submission id is still marked imported above so it's
+            # never re-examined, but no second note is created.
+            continue
+
+        prior_wrong = [
+            s
+            for s in by_problem_key[problem_key]
+            if s.creation_time < submission.creation_time
+            and s.verdict not in (None, "OK")
+        ]
+
+        item = build_problem_item(submission, prior_wrong_attempts=len(prior_wrong))
+        vault_path, item = _store_with_title_collision_handling(
+            handbook, item, problem_key
+        )
+
+        note = generate_revision_note(item, submission, prior_wrong)
+        note_paths = write_revision_note(vault_root, note)
+
+        state.remember_problem(problem_key, item)
+        imported.append(
+            SyncedProblem(
+                item=item, vault_path=vault_path, note=note, note_paths=note_paths
+            )
+        )
+
+    graph = GraphBuilder(state.known_items()).build()
+    _export_graph(vault_root, graph)
+
+    state.handle = handle
+    state.last_synced_at = datetime.now()
+    state.save()
+
+    return SyncReport(
+        handle=handle,
+        fetched_submissions=len(submissions),
+        newly_accepted=len(new_accepted),
+        imported=imported,
+        already_known=len(new_accepted) - len(imported),
+        total_known_problems=state.problem_count(),
+        graph_node_count=len(graph),
+        graph_edge_count=len(graph.edges()),
+        duplicate_report=graph.duplicate_detector().find_duplicates(),
+    )
+
+
+def _store_with_title_collision_handling(
+    handbook: Handbook, item: Problem, problem_key: str
+) -> tuple[Path, Problem]:
+    """Store ``item``, disambiguating its title if a *different* problem
+    already occupies that title's slot.
+
+    Codeforces problem titles are not globally unique -- two different
+    contests can each have a problem called "Sum" or "Array". The
+    common case (a genuinely new title) stores exactly as-is; only a
+    real collision pays the cost of a rename, using ``problem_key``
+    (globally unique by construction) to guarantee the retry succeeds.
+    """
+    try:
+        return handbook.store(item), item
+    except DuplicateItemError:
+        disambiguated = item.model_copy(
+            update={"title": f"{item.title} (CF {problem_key})"}
+        )
+        return handbook.store(disambiguated), disambiguated
+
+
+def _export_graph(vault_root: Path, graph: KnowledgeGraph) -> None:
+    """Persist the rebuilt graph as JSON alongside the vault's other
+    ``.handbook`` bookkeeping, so ``cp-handbook status`` (or any future
+    tool) can inspect graph structure without rebuilding it itself.
+    """
+    atomic_write(vault_root / _GRAPH_EXPORT_RELATIVE_PATH, graph.export_json())
