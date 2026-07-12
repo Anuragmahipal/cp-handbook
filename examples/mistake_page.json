@@ -1,0 +1,217 @@
+{
+  "id": "17135c2b-3b57-4fe8-ae94-0be9ce32f2a9",
+  "version": 1,
+  "revision_of": null,
+  "superseded_by": null,
+  "created_at": "2026-07-12T17:49:56.506003",
+  "updated_at": "2026-07-12T17:49:56.506003",
+  "metadata": {
+    "title": "Off-by-One in Binary Search Bounds",
+    "summary": "A recurring bug pattern: updating a bound to `mid` instead of `mid ± 1` and looping forever on a two-element range.",
+    "tags": [
+      "binary-search",
+      "off-by-one",
+      "debugging"
+    ],
+    "source_kind": "mistake",
+    "difficulty": null,
+    "estimated_minutes": 8,
+    "locale": "en"
+  },
+  "sections": [
+    {
+      "id": "d0c46394-b3f8-4a6d-8326-50ecf2c2f200",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505821",
+      "updated_at": "2026-07-12T17:49:56.505822",
+      "heading": {
+        "spans": [
+          {
+            "text": "What Happened",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "9b643562-f559-4cee-8bd9-aeebdf79f187",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "Submission timed out instead of failing outright -- the usual signature of an infinite loop rather than wrong logic.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "body"
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "8be61a6e-c1ce-4df3-a1ce-c7b692395c64",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505857",
+      "updated_at": "2026-07-12T17:49:56.505858",
+      "heading": {
+        "spans": [
+          {
+            "text": "Root Cause",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "a4e2e9be-5f01-49e2-a4d5-d4f8f8eb41e2",
+          "block_type": "callout",
+          "kind": "pitfall",
+          "title": "hi = mid vs. hi = mid - 1",
+          "body": [
+            {
+              "id": "60fd0711-6a4a-490a-8dd2-0af1d3d765c4",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "When check(mid) is False, hi must become mid - 1, not mid -- otherwise a two-element range [lo, lo+1] with mid = lo never shrinks and the loop never terminates.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "prevention-section",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505945",
+      "updated_at": "2026-07-12T17:49:56.505945",
+      "heading": {
+        "spans": [
+          {
+            "text": "Prevention",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "c9c33e6f-8550-4801-b680-3da6664c0674",
+          "block_type": "callout",
+          "kind": "tip",
+          "title": "The two-element check",
+          "body": [
+            {
+              "id": "5b0a4725-66d1-451f-ace4-472bbaf14839",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "Before submitting, trace the loop by hand on the smallest possible range -- lo, hi = 0, 1 -- and confirm it terminates.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [
+        {
+          "id": "bef7cd1e-22e2-4afa-9f5a-5d634a658b92",
+          "target_id": "prevention-section",
+          "prompt": {
+            "spans": [
+              {
+                "text": "What's the one invariant that must strictly shrink every iteration of a binary search loop?",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "anchor_type": "question"
+        }
+      ],
+      "review_cues": [
+        {
+          "id": "2a1ea43c-8d52-4a25-8192-a58e497e6aa0",
+          "anchor_id": "bef7cd1e-22e2-4afa-9f5a-5d634a658b92",
+          "status": "due",
+          "strength": 0.4,
+          "review_count": 2,
+          "last_reviewed_at": "2026-06-20T09:00:00",
+          "next_due_at": "2026-07-10T09:00:00"
+        }
+      ]
+    },
+    {
+      "id": "1787f920-8239-4a3c-9fa5-e1fcd853c67e",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505993",
+      "updated_at": "2026-07-12T17:49:56.505993",
+      "heading": {
+        "spans": [
+          {
+            "text": "Related Problems",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "4922fce1-2895-4bda-9e62-2ea198c3518e",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "First seen on ",
+                "emphasis": [],
+                "link_target": null
+              },
+              {
+                "text": "CF 4A",
+                "emphasis": [
+                  "inline_code"
+                ],
+                "link_target": "cf-4a-watermelon"
+              },
+              {
+                "text": ", recurred on a binary-search-on-the-answer problem.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "body"
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    }
+  ],
+  "schema_version": 1
+}

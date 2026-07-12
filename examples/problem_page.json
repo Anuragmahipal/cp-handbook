@@ -1,0 +1,200 @@
+{
+  "id": "890bb01b-348d-4bce-8f2c-0ddc8bdb0ce2",
+  "version": 1,
+  "revision_of": null,
+  "superseded_by": null,
+  "created_at": "2026-07-12T17:49:56.505794",
+  "updated_at": "2026-07-12T17:49:56.505794",
+  "metadata": {
+    "title": "CF 4A -- Watermelon",
+    "summary": "Split a whole watermelon of weight w into two piles, each an even positive weight.",
+    "tags": [
+      "math",
+      "constructive",
+      "brute-force"
+    ],
+    "source_kind": "problem",
+    "difficulty": "800",
+    "estimated_minutes": 5,
+    "locale": "en"
+  },
+  "sections": [
+    {
+      "id": "5ad45f9e-c5ca-4840-9108-0ccf80bc9486",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505712",
+      "updated_at": "2026-07-12T17:49:56.505712",
+      "heading": {
+        "spans": [
+          {
+            "text": "Statement",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "a63f7697-9222-4b96-9074-18c476738b6e",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "Given an integer weight w, decide whether it can be split into two positive integer weights that are both even.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "body"
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "9c5cf504-7c4d-439d-89f3-9b1a81ff9e2e",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505733",
+      "updated_at": "2026-07-12T17:49:56.505734",
+      "heading": {
+        "spans": [
+          {
+            "text": "Approach",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "f28f1be9-3543-4efa-b31e-6ba81945e480",
+          "block_type": "callout",
+          "kind": "insight",
+          "title": "Reduce to parity",
+          "body": [
+            {
+              "id": "89d95f1a-c527-4f46-8a4d-7422ca1b66a2",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "Any even w >= 4 splits as 2 and (w - 2), both even and positive. Odd w can never split into two even parts, and w = 2 only splits as 1 + 1, neither of which is even.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "6df16aad-f37a-4693-b14b-cff9a5ce49aa",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505762",
+      "updated_at": "2026-07-12T17:49:56.505762",
+      "heading": {
+        "spans": [
+          {
+            "text": "Code",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "44cac520-d60c-4412-84fa-ac815a5e9941",
+          "block_type": "code",
+          "language": "cpp",
+          "source": "cout << (w > 2 && w % 2 == 0 ? \"YES\" : \"NO\");",
+          "caption": "",
+          "highlighted_lines": [],
+          "annotations": []
+        }
+      ],
+      "memory_anchors": [
+        {
+          "id": "df652bc2-1836-404d-8a6a-0fc9dffa3857",
+          "target_id": "44cac520-d60c-4412-84fa-ac815a5e9941",
+          "prompt": {
+            "spans": [
+              {
+                "text": "Why is w = 2 the one even weight that still answers NO?",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "anchor_type": "question"
+        }
+      ],
+      "review_cues": [
+        {
+          "id": "c45271ec-39aa-4675-83ff-a72915a1cf43",
+          "anchor_id": "df652bc2-1836-404d-8a6a-0fc9dffa3857",
+          "status": "new",
+          "strength": 0.0,
+          "review_count": 0,
+          "last_reviewed_at": null,
+          "next_due_at": null
+        }
+      ]
+    },
+    {
+      "id": "dc0208a0-30d5-4053-ac54-88377faf10f6",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505787",
+      "updated_at": "2026-07-12T17:49:56.505787",
+      "heading": {
+        "spans": [
+          {
+            "text": "Mistakes",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "b0fb7a3f-1914-4a17-91d9-ccf0bf68c871",
+          "block_type": "callout",
+          "kind": "mistake",
+          "title": "The w = 2 edge case",
+          "body": [
+            {
+              "id": "8a56b0b1-f794-49d4-bc75-d9def5746267",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "First submission forgot the w > 2 check and got a wrong answer on the w = 2 test case specifically.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    }
+  ],
+  "schema_version": 1
+}

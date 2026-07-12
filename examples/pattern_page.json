@@ -1,0 +1,387 @@
+{
+  "id": "3fc7f118-fb6d-467d-a83d-9a65ce3afffb",
+  "version": 1,
+  "revision_of": null,
+  "superseded_by": null,
+  "created_at": "2026-07-12T17:49:56.506293",
+  "updated_at": "2026-07-12T17:49:56.506293",
+  "metadata": {
+    "title": "Two Pointers on a Sorted Array",
+    "summary": "Collapsing an O(n²) pair search into O(n) by moving two indices toward each other instead of checking every pair.",
+    "tags": [
+      "two-pointers",
+      "arrays",
+      "sorted"
+    ],
+    "source_kind": "pattern",
+    "difficulty": "Easy",
+    "estimated_minutes": 12,
+    "locale": "en"
+  },
+  "sections": [
+    {
+      "id": "71fe1da0-f7c6-417f-8bf6-2512d5b1d47a",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.506035",
+      "updated_at": "2026-07-12T17:49:56.506035",
+      "heading": {
+        "spans": [
+          {
+            "text": "Intuition",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "8aed771f-ff32-49ba-b3a8-f78db546748c",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "On a sorted array, if the sum at (left, right) is too big, only shrinking right can help; if it's too small, only growing left can. That one-directional argument is what lets both pointers move only forward, ever.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "intuition"
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "d8cd7aae-d056-4f24-a1ee-7938ce238ae3",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.506252",
+      "updated_at": "2026-07-12T17:49:56.506253",
+      "heading": {
+        "spans": [
+          {
+            "text": "Walkthrough",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "3d8bfd5f-a44f-44cf-a6fc-4bdf057fdb74",
+          "block_type": "diagram",
+          "kind": "array",
+          "caption": "Target sum 16: a[0] + a[5] = 16 is too... exact, so stop; a bigger target would move left inward",
+          "layout_hint": "linear",
+          "elements": [
+            {
+              "id": "cell-0",
+              "block_type": "visual",
+              "role": "value",
+              "label": {
+                "spans": [
+                  {
+                    "text": "a[0]",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "1",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 0
+              },
+              "group": null
+            },
+            {
+              "id": "cell-1",
+              "block_type": "visual",
+              "role": "value",
+              "label": {
+                "spans": [
+                  {
+                    "text": "a[1]",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "3",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 1
+              },
+              "group": null
+            },
+            {
+              "id": "cell-2",
+              "block_type": "visual",
+              "role": "value",
+              "label": {
+                "spans": [
+                  {
+                    "text": "a[2]",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "5",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 2
+              },
+              "group": null
+            },
+            {
+              "id": "cell-3",
+              "block_type": "visual",
+              "role": "value",
+              "label": {
+                "spans": [
+                  {
+                    "text": "a[3]",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "8",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 3
+              },
+              "group": null
+            },
+            {
+              "id": "cell-4",
+              "block_type": "visual",
+              "role": "value",
+              "label": {
+                "spans": [
+                  {
+                    "text": "a[4]",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "12",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 4
+              },
+              "group": null
+            },
+            {
+              "id": "cell-5",
+              "block_type": "visual",
+              "role": "value",
+              "label": {
+                "spans": [
+                  {
+                    "text": "a[5]",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "15",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 5
+              },
+              "group": null
+            },
+            {
+              "id": "left-1",
+              "block_type": "visual",
+              "role": "pointer",
+              "label": {
+                "spans": [
+                  {
+                    "text": "left",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": null,
+              "emphasis": false,
+              "position": {
+                "row": 1,
+                "col": 0
+              },
+              "group": "pointer"
+            },
+            {
+              "id": "right-1",
+              "block_type": "visual",
+              "role": "pointer",
+              "label": {
+                "spans": [
+                  {
+                    "text": "right",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": null,
+              "emphasis": false,
+              "position": {
+                "row": 1,
+                "col": 5
+              },
+              "group": "pointer"
+            },
+            {
+              "id": "left-2",
+              "block_type": "visual",
+              "role": "pointer",
+              "label": {
+                "spans": [
+                  {
+                    "text": "left",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": null,
+              "emphasis": true,
+              "position": {
+                "row": 2,
+                "col": 1
+              },
+              "group": "pointer"
+            },
+            {
+              "id": "right-2",
+              "block_type": "visual",
+              "role": "pointer",
+              "label": {
+                "spans": [
+                  {
+                    "text": "right",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": null,
+              "emphasis": false,
+              "position": {
+                "row": 2,
+                "col": 5
+              },
+              "group": "pointer"
+            }
+          ],
+          "arrows": [
+            {
+              "id": "57ea9598-b3e1-45b4-8cc6-be95cb64b664",
+              "from_id": "left-1",
+              "to_id": "left-2",
+              "label": "sum too small: left++",
+              "style": "solid",
+              "order": 1
+            }
+          ],
+          "connections": []
+        },
+        {
+          "id": "3b6a2cbd-7982-41ba-953b-4280c3e30ba7",
+          "block_type": "code",
+          "language": "cpp",
+          "source": "int left = 0, right = n - 1;\nwhile (left < right) {\n    int sum = a[left] + a[right];\n    if (sum == target) return true;\n    if (sum < target) left++;\n    else right--;\n}\nreturn false;",
+          "caption": "",
+          "highlighted_lines": [],
+          "annotations": []
+        }
+      ],
+      "memory_anchors": [
+        {
+          "id": "cc35987a-55b5-452e-ada1-471e1537c94f",
+          "target_id": "3b6a2cbd-7982-41ba-953b-4280c3e30ba7",
+          "prompt": {
+            "spans": [
+              {
+                "text": "Why is it safe to only ever move one pointer per iteration, never both?",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "anchor_type": "question"
+        }
+      ],
+      "review_cues": [
+        {
+          "id": "5f8ad536-31a0-4ca6-9af5-d6dbedb472ea",
+          "anchor_id": "cc35987a-55b5-452e-ada1-471e1537c94f",
+          "status": "new",
+          "strength": 0.0,
+          "review_count": 0,
+          "last_reviewed_at": null,
+          "next_due_at": null
+        }
+      ]
+    },
+    {
+      "id": "c3b1a29e-fe9b-41b1-b142-17846e7d36c0",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.506285",
+      "updated_at": "2026-07-12T17:49:56.506285",
+      "heading": {
+        "spans": [
+          {
+            "text": "Common Mistakes",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "9addf459-001d-4555-88a8-efbd8f54ddaf",
+          "block_type": "callout",
+          "kind": "mistake",
+          "title": "Moving both pointers at once",
+          "body": [
+            {
+              "id": "af115089-7e46-4a8b-9511-29517d2fce5c",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "Advancing left and right in the same iteration can skip over the one valid pair entirely -- move exactly one pointer per step.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    }
+  ],
+  "schema_version": 1
+}

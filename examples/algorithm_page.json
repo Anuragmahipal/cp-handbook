@@ -1,0 +1,428 @@
+{
+  "id": "40087ca0-2e51-4455-a1fb-ee39ba4997fb",
+  "version": 1,
+  "revision_of": null,
+  "superseded_by": null,
+  "created_at": "2026-07-12T17:49:56.505675",
+  "updated_at": "2026-07-12T17:49:56.505675",
+  "metadata": {
+    "title": "Dijkstra's Algorithm",
+    "summary": "Single-source shortest paths on a graph with non-negative edge weights, by always finalizing the closest unvisited node.",
+    "tags": [
+      "graphs",
+      "shortest-path",
+      "greedy"
+    ],
+    "source_kind": "algorithm",
+    "difficulty": "Medium",
+    "estimated_minutes": 25,
+    "locale": "en"
+  },
+  "sections": [
+    {
+      "id": "1c6971f2-3839-4712-a495-311f1a9cb619",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505393",
+      "updated_at": "2026-07-12T17:49:56.505395",
+      "heading": {
+        "spans": [
+          {
+            "text": "Recognition",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "a8f70821-df71-4102-9821-fd01db129b59",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "Shortest paths, non-negative weights, one source, possibly many destinations -- that combination is Dijkstra.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "intuition"
+        },
+        {
+          "id": "b3682cfe-8ae4-4c80-ab5c-70070ffe3b76",
+          "block_type": "callout",
+          "kind": "insight",
+          "title": "When it stops applying",
+          "body": [
+            {
+              "id": "5905c396-97e9-4a4a-a2bb-1611ce251e5d",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "The moment an edge weight can be negative, the greedy argument breaks and you need Bellman-Ford instead.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "e623749b-71b2-4371-8694-022330679e17",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505453",
+      "updated_at": "2026-07-12T17:49:56.505454",
+      "heading": {
+        "spans": [
+          {
+            "text": "Core Idea",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "e14ade32-6898-419d-b8e6-38b154cbfc20",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "Repeatedly pop the closest unvisited node from a priority queue, finalize its distance, and relax every edge out of it.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "body"
+        },
+        {
+          "id": "637915d3-ba61-4709-b420-00c1f5a8d9c9",
+          "block_type": "callout",
+          "kind": "definition",
+          "title": "Relaxation",
+          "body": [
+            {
+              "id": "344ace62-9ad4-4e40-8162-218f7335fe77",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "Relaxing edge (u, v, w) means: if dist[u] + w < dist[v], improve dist[v] and push it back onto the queue.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "6152ab81-96ca-4b31-9feb-bcc56b5cc0c2",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505474",
+      "updated_at": "2026-07-12T17:49:56.505475",
+      "heading": {
+        "spans": [
+          {
+            "text": "Complexity",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "87ec1156-2dfd-4e3d-bc00-b955b749f801",
+          "block_type": "text",
+          "content": {
+            "spans": [
+              {
+                "text": "O((V + E) log V) with a binary heap -- each edge can trigger at most one push, and each push costs log V.",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "role": "body"
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "b695245e-fbf0-4311-80e9-bb4e66b3f1f6",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505586",
+      "updated_at": "2026-07-12T17:49:56.505587",
+      "heading": {
+        "spans": [
+          {
+            "text": "Diagram",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "ae2af936-3bfc-4c36-8a46-667e58dd67e5",
+          "block_type": "diagram",
+          "kind": "graph",
+          "caption": "Relaxing every edge out of the just-finalized node A",
+          "layout_hint": "freeform",
+          "elements": [
+            {
+              "id": "node-a",
+              "block_type": "visual",
+              "role": "state",
+              "label": {
+                "spans": [
+                  {
+                    "text": "A",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "0",
+              "emphasis": true,
+              "position": {
+                "row": 0,
+                "col": 0
+              },
+              "group": null
+            },
+            {
+              "id": "node-b",
+              "block_type": "visual",
+              "role": "state",
+              "label": {
+                "spans": [
+                  {
+                    "text": "B",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "4",
+              "emphasis": false,
+              "position": {
+                "row": 0,
+                "col": 1
+              },
+              "group": null
+            },
+            {
+              "id": "node-c",
+              "block_type": "visual",
+              "role": "state",
+              "label": {
+                "spans": [
+                  {
+                    "text": "C",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "2",
+              "emphasis": false,
+              "position": {
+                "row": 1,
+                "col": 0
+              },
+              "group": null
+            },
+            {
+              "id": "node-d",
+              "block_type": "visual",
+              "role": "state",
+              "label": {
+                "spans": [
+                  {
+                    "text": "D",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "value": "7",
+              "emphasis": false,
+              "position": {
+                "row": 1,
+                "col": 1
+              },
+              "group": null
+            }
+          ],
+          "arrows": [
+            {
+              "id": "3c1845c1-07d8-4b81-8a6f-72d56d4a3ea8",
+              "from_id": "node-a",
+              "to_id": "node-b",
+              "label": "w=4",
+              "style": "solid",
+              "order": 1
+            },
+            {
+              "id": "73affaea-5c09-4cf6-853f-7a2422ade76d",
+              "from_id": "node-a",
+              "to_id": "node-c",
+              "label": "w=2",
+              "style": "solid",
+              "order": 2
+            }
+          ],
+          "connections": [
+            {
+              "id": "ccee1190-3e96-495d-a5a3-2bfc92902f4c",
+              "from_id": "node-b",
+              "to_id": "node-d",
+              "label": "3",
+              "style": "solid",
+              "directed": false
+            },
+            {
+              "id": "ad9cf72d-dc51-4bb8-a178-dd1aa3082fae",
+              "from_id": "node-c",
+              "to_id": "node-d",
+              "label": "5",
+              "style": "solid",
+              "directed": false
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    },
+    {
+      "id": "186f719c-dacb-4451-b15d-925d7cea6dd2",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505620",
+      "updated_at": "2026-07-12T17:49:56.505620",
+      "heading": {
+        "spans": [
+          {
+            "text": "Implementation",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "857404e7-c703-464c-98e0-b6dfc7141f11",
+          "block_type": "code",
+          "language": "cpp",
+          "source": "vector<long long> dist(n, INF);\npriority_queue<pair<long long,int>, vector<pair<long long,int>>, greater<>> pq;\ndist[src] = 0;\npq.push({0, src});\nwhile (!pq.empty()) {\n    auto [d, u] = pq.top(); pq.pop();\n    if (d > dist[u]) continue;\n    for (auto [v, w] : adj[u]) {\n        if (dist[u] + w < dist[v]) {\n            dist[v] = dist[u] + w;\n            pq.push({dist[v], v});\n        }\n    }\n}",
+          "caption": "Dijkstra with a binary heap",
+          "highlighted_lines": [
+            7
+          ],
+          "annotations": [
+            {
+              "line": 7,
+              "note": "stale queue entry from before a better distance was found -- skip it instead of re-relaxing"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [
+        {
+          "id": "ed436485-9c61-494a-8757-40bd76a6915e",
+          "target_id": "857404e7-c703-464c-98e0-b6dfc7141f11",
+          "prompt": {
+            "spans": [
+              {
+                "text": "Why is `if (d > dist[u]) continue;` needed even though we never delete stale entries from the queue?",
+                "emphasis": [],
+                "link_target": null
+              }
+            ]
+          },
+          "anchor_type": "question"
+        }
+      ],
+      "review_cues": [
+        {
+          "id": "e90a5cb0-ed13-43e0-bb1b-16405adf3197",
+          "anchor_id": "ed436485-9c61-494a-8757-40bd76a6915e",
+          "status": "new",
+          "strength": 0.0,
+          "review_count": 0,
+          "last_reviewed_at": null,
+          "next_due_at": null
+        }
+      ]
+    },
+    {
+      "id": "54b2714d-8bfa-4225-98a3-1f156f75c5a9",
+      "version": 1,
+      "revision_of": null,
+      "superseded_by": null,
+      "created_at": "2026-07-12T17:49:56.505665",
+      "updated_at": "2026-07-12T17:49:56.505665",
+      "heading": {
+        "spans": [
+          {
+            "text": "Mistakes",
+            "emphasis": [],
+            "link_target": null
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "6b3ea7be-01f7-4c69-92c5-599f60adee41",
+          "block_type": "callout",
+          "kind": "mistake",
+          "title": "Negative edges",
+          "body": [
+            {
+              "id": "bd3510c5-8632-4401-9746-9a05ccca27db",
+              "block_type": "text",
+              "content": {
+                "spans": [
+                  {
+                    "text": "Running Dijkstra on a graph with a negative edge silently produces a wrong answer instead of crashing -- it will not look like a bug until you check by hand.",
+                    "emphasis": [],
+                    "link_target": null
+                  }
+                ]
+              },
+              "role": "body"
+            }
+          ]
+        }
+      ],
+      "memory_anchors": [],
+      "review_cues": []
+    }
+  ],
+  "schema_version": 1
+}

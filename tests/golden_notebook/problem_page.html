@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CF 4A -- Watermelon</title>
+<style>:root {
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body.lir-page {
+  margin: 0;
+  padding: 48px 24px 96px;
+  background: #f7f3ea;
+  color: #2b2620;
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  line-height: 1.55;
+}
+
+.lir-container {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* -- header ------------------------------------------------------- */
+
+.lir-header {
+  margin-bottom: 40px;
+}
+
+.lir-title {
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  font-size: 2.4rem;
+  margin: 0 0 6px;
+}
+
+.lir-summary {
+  color: #8a8172;
+  font-size: 1.05rem;
+  margin: 0 0 14px;
+  max-width: 62ch;
+}
+
+.lir-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.lir-meta-chip, .lir-tag {
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #e4ddc9;
+  color: #8a8172;
+  background: #ffffff;
+}
+
+.lir-meta-chip-accent {
+  border-color: #c65d2e;
+  color: #c65d2e;
+}
+
+/* -- path strip ----------------------------------------------------- */
+
+.lir-path-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 28px;
+  font-size: 0.82rem;
+  color: #8a8172;
+}
+
+.lir-path-step {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #e4ddc9;
+}
+
+.lir-path-step-current {
+  border-color: #c65d2e;
+  color: #c65d2e;
+  font-weight: 600;
+}
+
+/* -- rows / cards --------------------------------------------------- */
+
+.lir-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e4ddc9;
+}
+
+.lir-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.lir-card {
+  flex: 1 1 260px;
+  background: #ffffff;
+  border: 1px solid #e4ddc9;
+  border-radius: 10px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.lir-section-heading {
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  font-size: 1.15rem;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* -- text ------------------------------------------------------------ */
+
+.lir-text { margin: 0 0 12px; }
+.lir-text:last-child { margin-bottom: 0; }
+.lir-text-intuition { font-size: 1.05rem; }
+.lir-text-summary { color: #8a8172; font-style: italic; }
+.lir-text-caption { font-size: 0.85rem; color: #8a8172; }
+
+/* -- code ------------------------------------------------------------ */
+
+.lir-code-block { margin: 12px 0; }
+.lir-code-caption {
+  font-size: 0.8rem;
+  color: #8a8172;
+  margin-bottom: 6px;
+}
+table.lir-code {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 0.86rem;
+  background: #f7f3ea;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.lir-code-row-highlighted { background: #e4ddc9; }
+.lir-code-lineno {
+  width: 1%;
+  text-align: right;
+  color: #8a8172;
+  padding: 1px 10px;
+  user-select: none;
+  opacity: 0.6;
+}
+.lir-code-line { padding: 1px 10px; white-space: pre; }
+.lir-code-note {
+  padding: 1px 10px;
+  color: #8a8172;
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  font-size: 0.78rem;
+  font-style: italic;
+  white-space: normal;
+}
+.tok-kw { color: #8a3ea8; font-weight: 600; }
+.tok-str { color: #3f8f5f; }
+.tok-com { color: #9a9284; font-style: italic; }
+.tok-num { color: #c65d2e; }
+.tok-pre { color: #b2456e; }
+
+/* -- callouts --------------------------------------------------------- */
+
+.lir-callout {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+.lir-callout-title { font-weight: 700; margin-bottom: 4px; }
+.lir-callout-body .lir-text { margin: 0; }
+.lir-callout-tip {background:#eaf5ec; border-color:#7fb08a;}
+.lir-callout-warning {background:#fdf1de; border-color:#d99a3c;}
+.lir-callout-pitfall {background:#fdeeee; border-color:#cf6a6a;}
+.lir-callout-insight {background:#eef2fb; border-color:#6d84c9;}
+.lir-callout-definition {background:#f3eef8; border-color:#9b7bc4;}
+.lir-callout-example {background:#eef8f7; border-color:#5aa9a1;}
+.lir-callout-mistake {background:#fdeaea; border-color:#c94f4f;}
+.lir-callout-question {background:#fef8e6; border-color:#c9a63a;}
+
+/* -- diagrams ---------------------------------------------------------- */
+
+.lir-diagram-block { margin: 12px 0; }
+svg.lir-diagram { width: 100%; height: auto; display: block; }
+.lir-diagram-caption {
+  font-size: 0.8rem;
+  color: #8a8172;
+  margin-top: 6px;
+}
+text.lir-node-label, text.lir-node-caption {
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  font-size: 12px;
+  fill: #2b2620;
+}
+text.lir-node-value {
+  font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  fill: #2b2620;
+}
+text.lir-edge-label {
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  font-size: 10.5px;
+  fill: #8a8172;
+}
+text.lir-step-badge {
+  font-family: 'Iowan Old Style', 'Georgia', serif;
+  font-size: 10px;
+  fill: #ffffff;
+  font-weight: 700;
+}
+
+/* -- visual chips (standalone VisualBlock) ----------------------------- */
+
+.lir-visual-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 1.5px solid #c9bfa3;
+  background: #fffdf7;
+  border-radius: 10px;
+  padding: 8px 14px;
+  margin: 4px 6px 4px 0;
+}
+.lir-visual-chip-emphasis {
+  border-color: #c65d2e;
+  border-width: 2.5px;
+}
+.lir-visual-chip-value { font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace; font-weight: 700; }
+.lir-visual-chip-label { font-size: 0.78rem; color: #8a8172; }
+
+/* -- memory anchors (sticky-note style) --------------------------------- */
+
+.lir-anchor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: color-mix(in srgb, #c65d2e 12%, #ffffff);
+  border: 1px solid #c65d2e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 10px 6px 4px 0;
+  max-width: 320px;
+  transform: rotate(-0.6deg);
+}
+.lir-anchor-kicker {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c65d2e;
+  font-weight: 700;
+}
+.lir-anchor-prompt { font-size: 0.9rem; }
+
+/* -- review badges -------------------------------------------------------- */
+
+.lir-review-badge {
+  display: inline-block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.lir-review-new { background:#8a8172; }
+.lir-review-learning { background:#c9a63a; }
+.lir-review-due { background:#c65d2e; }
+.lir-review-mastered { background:#5a9a6f; }
+.lir-review-suspended { background:#a8a196; }
+
+/* -- inline links -------------------------------------------------------- */
+
+.lir-link {
+  border-bottom: 1px dotted #c65d2e;
+  cursor: help;
+}
+
+/* -- learning path overview page ------------------------------------------ */
+
+.lir-path-page .lir-path-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.lir-path-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lir-path-index {
+  font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-weight: 700;
+  color: #c65d2e;
+  min-width: 2ch;
+}
+.lir-path-optional {
+  font-size: 0.72rem;
+  color: #8a8172;
+  border: 1px solid #e4ddc9;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 6px;
+}
+
+@media print {
+  body.lir-page { background: #fff; }
+  .lir-card { box-shadow: none; break-inside: avoid; }
+}</style>
+</head>
+<body class="lir-page">
+<div class="lir-container"><div class="lir-header"><h1 class="lir-title">CF 4A -- Watermelon</h1><p class="lir-summary">Split a whole watermelon of weight w into two piles, each an even positive weight.</p><div class="lir-metadata"><span class="lir-meta-chip lir-meta-chip-accent">problem</span><span class="lir-meta-chip">800</span><span class="lir-meta-chip">5 min</span><span class="lir-tag">#math</span><span class="lir-tag">#constructive</span><span class="lir-tag">#brute-force</span></div></div><div class="lir-row"><div class="lir-card"><h2 class="lir-section-heading">Statement</h2><p class="lir-text lir-text-body">Given an integer weight w, decide whether it can be split into two positive integer weights that are both even.</p></div><div class="lir-card"><h2 class="lir-section-heading">Approach</h2><div class="lir-callout lir-callout-insight"><div class="lir-callout-title">Reduce to parity</div><div class="lir-callout-body"><p class="lir-text lir-text-body">Any even w &gt;= 4 splits as 2 and (w - 2), both even and positive. Odd w can never split into two even parts, and w = 2 only splits as 1 + 1, neither of which is even.</p></div></div></div></div><div class="lir-row"><div class="lir-card"><h2 class="lir-section-heading">Code<span class="lir-review-badge lir-review-new">NEW</span></h2><figure class="lir-code-block"><table class="lir-code" data-language="cpp"><tr class="lir-code-row"><td class="lir-code-lineno">1</td><td class="lir-code-line"><code>cout &lt;&lt; (w &gt; <span class="tok-num">2</span> &amp;&amp; w % <span class="tok-num">2</span> == <span class="tok-num">0</span> ? <span class="tok-str">&quot;YES&quot;</span> : <span class="tok-str">&quot;NO&quot;</span>);</code></td><td class="lir-code-note"></td></tr></table></figure><div class="lir-anchor" data-anchor-type="question"><span class="lir-anchor-kicker">Recall</span><span class="lir-anchor-prompt">Why is w = 2 the one even weight that still answers NO?</span></div></div><div class="lir-card"><h2 class="lir-section-heading">Mistakes</h2><div class="lir-callout lir-callout-mistake"><div class="lir-callout-title">The w = 2 edge case</div><div class="lir-callout-body"><p class="lir-text lir-text-body">First submission forgot the w &gt; 2 check and got a wrong answer on the w = 2 test case specifically.</p></div></div></div></div></div>
+</body>
+</html>
