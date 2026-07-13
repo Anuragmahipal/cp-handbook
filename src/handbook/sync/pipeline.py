@@ -30,6 +30,7 @@ from handbook.handbook import Handbook
 from handbook.models import Problem
 from handbook.sync.codeforces import CFSubmission, CodeforcesClient
 from handbook.sync.mapping import build_problem_item
+from handbook.sync.notebook import CompiledNotebookPage, compile_notebook_pages
 from handbook.sync.note_writer import WrittenNote, write_revision_note
 from handbook.sync.revision_note import RevisionNote, generate_revision_note
 from handbook.sync.state import SyncState
@@ -61,6 +62,12 @@ class SyncReport:
     graph_node_count: int = 0
     graph_edge_count: int = 0
     duplicate_report: DuplicateReport | None = None
+    notebook_pages: list[CompiledNotebookPage] = field(default_factory=list)
+    """Every notebook page (re)compiled this run -- see
+    :mod:`handbook.sync.notebook`. Populated for the *full* cumulative
+    set of known items, not just this run's newly imported ones, the
+    same "rebuild from everything known" convention already used for
+    :attr:`graph_node_count`/:attr:`graph_edge_count` above."""
 
 
 def run_sync(
@@ -129,6 +136,7 @@ def run_sync(
 
     graph = GraphBuilder(state.known_items()).build()
     _export_graph(vault_root, graph)
+    notebook_pages = compile_notebook_pages(vault_root, state.known_items(), graph)
 
     state.handle = handle
     state.last_synced_at = datetime.now()
@@ -144,6 +152,7 @@ def run_sync(
         graph_node_count=len(graph),
         graph_edge_count=len(graph.edges()),
         duplicate_report=graph.duplicate_detector().find_duplicates(),
+        notebook_pages=notebook_pages,
     )
 
 

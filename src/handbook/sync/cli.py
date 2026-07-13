@@ -189,6 +189,12 @@ def _print_report(report: SyncReport) -> None:
             "-- see `cp-handbook status`.[/yellow]"
         )
 
+    if report.notebook_pages:
+        console.print(
+            f"Compiled [bold]{len(report.notebook_pages)}[/bold] notebook "
+            f"page(s) into {report.notebook_pages[0].html_path.parent.parent}/"
+        )
+
     console.print(
         f"\n[bold]{report.total_known_problems}[/bold] known problems  \u00b7  "
         f"graph: {report.graph_node_count} nodes / {report.graph_edge_count} edges"

@@ -39,6 +39,17 @@ frontmatter directly in Obsidian, that edit is invisible to the graph
 until a real vault loader exists. Worth knowing; not a regression
 introduced here, since nothing before this could read edits back either.
 
+**Notebook pages are recompiled from that same full graph, every run.**
+After the graph is rebuilt, `handbook.sync.notebook.
+compile_notebook_pages()` runs every known item through
+`KnowledgeCompiler` and `NotebookRenderer`, writing
+`Vault/Notebook/<Kind>/<slug>.html` — the same "rebuild from
+everything known, not just this run's delta" choice the graph itself
+already makes, extended one layer further. See
+`docs/ARCHITECTURE_NOTES_COMPILER.md` for the compiler itself; this
+module only orchestrates calling it and writing the result next to
+(never inside) the existing Markdown note folders.
+
 **Codeforces tags become `Problem.algorithms` relations, not just
 `Problem.tags`.** They're written to both. This was a deliberate choice
 to make the knowledge graph substance out of real synced data — tags
@@ -89,7 +100,10 @@ rather than shared process memory.
   `Problem`. A tag becomes a *reference* to a topic, not a new
   first-class note — creating real Algorithm notes automatically from
   tag names would be guessing at content this prototype has no
-  business guessing at.
+  business guessing at. `compile_notebook_pages()` is nonetheless
+  written generically against whatever `SyncState.known_items()`
+  returns, not hardcoded to `Problem` — so this limitation lives here,
+  in what sync *creates*, not in what gets compiled once created.
 
 ## Testing notes
 
@@ -108,6 +122,12 @@ rather than shared process memory.
   — a factory for a raw `user.status` submission dict, matching
   https://codeforces.com/apiHelp/objects#Submission. Every sync test
   file uses it instead of hand-rolling the same JSON shape repeatedly.
+- `tests/test_sync_notebook_compilation.py` covers the notebook-
+  compilation stage specifically: one `.html` per synced problem,
+  written next to (not inside) the Markdown note folders, stable
+  across repeated syncs, both at the `run_sync()` and CLI level. The
+  compiler itself has its own test suite — see
+  `docs/ARCHITECTURE_NOTES_COMPILER.md`'s "Testing" section.
 
 ## What would come next (not built here, on purpose)
 
