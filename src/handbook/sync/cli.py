@@ -195,6 +195,24 @@ def _print_report(report: SyncReport) -> None:
             f"page(s) into {report.notebook_pages[0].html_path.parent.parent}/"
         )
 
+    if report.materialization is not None and report.materialization.created:
+        console.print(
+            f"Materialized [bold]{len(report.materialization.created)}[/bold] "
+            "new knowledge item(s): "
+            + ", ".join(
+                f"{m.item.title} ({m.item.KIND})" for m in report.materialization.created
+            )
+        )
+    if report.materialization is not None and report.materialization.warnings:
+        for warning in report.materialization.warnings:
+            console.print(f"[yellow]\u26a0 {warning}[/yellow]")
+
+    if report.notebook_site is not None and report.notebook_site.pages:
+        console.print(
+            f"Notebook site: [bold]{len(report.notebook_site.pages)}[/bold] page(s), "
+            f"dashboard at {report.notebook_site.dashboard_path}"
+        )
+
     console.print(
         f"\n[bold]{report.total_known_problems}[/bold] known problems  \u00b7  "
         f"graph: {report.graph_node_count} nodes / {report.graph_edge_count} edges"

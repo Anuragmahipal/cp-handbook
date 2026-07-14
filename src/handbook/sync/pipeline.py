@@ -27,10 +27,12 @@ from pathlib import Path
 from handbook.exceptions import DuplicateItemError
 from handbook.graph import DuplicateReport, GraphBuilder, KnowledgeGraph
 from handbook.handbook import Handbook
+from handbook.materialize import MaterializationEngine, MaterializationReport, MaterializeState
 from handbook.models import Problem
 from handbook.sync.codeforces import CFSubmission, CodeforcesClient
 from handbook.sync.mapping import build_problem_item
 from handbook.sync.notebook import CompiledNotebookPage, compile_notebook_pages
+from handbook.sync.notebook_site import NotebookSiteReport, build_notebook_site
 from handbook.sync.note_writer import WrittenNote, write_revision_note
 from handbook.sync.revision_note import RevisionNote, generate_revision_note
 from handbook.sync.state import SyncState
@@ -68,6 +70,21 @@ class SyncReport:
     set of known items, not just this run's newly imported ones, the
     same "rebuild from everything known" convention already used for
     :attr:`graph_node_count`/:attr:`graph_edge_count` above."""
+    materialization: MaterializationReport | None = None
+    """What :class:`~handbook.materialize.engine.MaterializationEngine`
+    did this run -- which Algorithms/Patterns/Mistakes/Contests were
+    newly given a page of their own vs. already known, and any
+    warnings (ambiguous kinds, skipped hand-authored collisions). See
+    :mod:`handbook.materialize`."""
+    notebook_site: NotebookSiteReport | None = None
+    """The connected notebook site built this run -- every compiled
+    page plus the ``Notebook/index.html`` dashboard, with real
+    cross-page links and shared navigation. See
+    :mod:`handbook.sync.notebook_site`. Built over Problems *and*
+    whatever :attr:`materialization` produced, so it is a strict
+    superset of :attr:`notebook_pages` -- the latter is kept around
+    unchanged as this chunk's own building block and contract, not
+    replaced by it."""
 
 
 def run_sync(
@@ -138,6 +155,23 @@ def run_sync(
     _export_graph(vault_root, graph)
     notebook_pages = compile_notebook_pages(vault_root, state.known_items(), graph)
 
+    materialize_state = MaterializeState(vault_root)
+    materialization = MaterializationEngine(handbook, materialize_state).materialize(
+        state.known_items()
+    )
+    materialize_state.save()
+
+    # A second, separate graph -- Problems *and* whatever was just
+    # materialized -- so every Problem.algorithms/patterns/mistakes/
+    # contest_id relation now resolves to a real node instead of a
+    # graph-only shadow (see `handbook.materialize`). Kept separate
+    # from `graph` above on purpose: `graph_node_count`/`graph_edge_count`
+    # /`duplicate_report` describe the vault's authored Problems alone,
+    # unaffected by what this run happened to materialize.
+    site_items = list(state.known_items()) + materialization.all_items
+    site_graph = GraphBuilder(site_items).build()
+    notebook_site = build_notebook_site(vault_root, site_items, site_graph)
+
     state.handle = handle
     state.last_synced_at = datetime.now()
     state.save()
@@ -153,6 +187,8 @@ def run_sync(
         graph_edge_count=len(graph.edges()),
         duplicate_report=graph.duplicate_detector().find_duplicates(),
         notebook_pages=notebook_pages,
+        materialization=materialization,
+        notebook_site=notebook_site,
     )
 
 

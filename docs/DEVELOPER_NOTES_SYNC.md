@@ -96,14 +96,26 @@ rather than shared process memory.
   client alongside `codeforces.py` (fetch + parse) and its own mapping
   module; `pipeline.py`, `state.py`, and everything downstream of a
   `Problem` KnowledgeItem needs no changes to support a second judge.
-- **No `Algorithm`/`Pattern`/`Mistake` items are created.** Only
-  `Problem`. A tag becomes a *reference* to a topic, not a new
-  first-class note — creating real Algorithm notes automatically from
-  tag names would be guessing at content this prototype has no
-  business guessing at. `compile_notebook_pages()` is nonetheless
-  written generically against whatever `SyncState.known_items()`
-  returns, not hardcoded to `Problem` — so this limitation lives here,
-  in what sync *creates*, not in what gets compiled once created.
+- **`Algorithm`/`Pattern`/`Mistake`/`Contest` items are now created,
+  but only as empty shells, and only once.** This bullet used to read
+  "no Algorithm/Pattern/Mistake items are created... creating real
+  Algorithm notes automatically from tag names would be guessing at
+  content this prototype has no business guessing at." That's still
+  true of the *content* — see `handbook.materialize`, added in the
+  Knowledge Materialization chunk. What changed is that a tag now also
+  gets a first-class, persisted note with a real title, a stable id,
+  and a page of its own (so it stops being a graph-only shadow node --
+  see `docs/ARCHITECTURE_NOTES_GRAPH.md`) — but its `intuition`,
+  `implementation`, `pitfalls`, etc. are left blank for a person to
+  fill in by hand, and (since there is still no vault loader) that
+  file is never touched again automatically once created, precisely so
+  a person's hand-written additions to it can never be silently
+  overwritten. `compile_notebook_pages()` itself is unchanged; the new
+  `handbook.sync.notebook_site.build_notebook_site()` is what actually
+  compiles and links these materialized items into pages, run
+  alongside (not instead of) `compile_notebook_pages()` — see
+  `docs/ARCHITECTURE_NOTES_MATERIALIZATION.md` and
+  `docs/ARCHITECTURE_NOTES_NOTEBOOK_SITE.md`.
 
 ## Testing notes
 
@@ -133,8 +145,15 @@ rather than shared process memory.
 
 - A real vault loader (parse `Problem` notes' frontmatter back into
   KnowledgeItems), which would let the graph reflect hand-edits made
-  directly in Obsidian and remove `SyncState`'s own item cache.
-- `contest.list` integration for real contest names.
+  directly in Obsidian and remove `SyncState`'s own item cache. This
+  now also blocks two things on the materialization side (see
+  `docs/ARCHITECTURE_NOTES_MATERIALIZATION.md`): refreshing a
+  materialized `Contest.problems` list as more problems from that
+  contest get synced later, and safely re-deriving a materialized
+  item's relations at all once a person has hand-edited its free text.
+- `contest.list` integration for real contest names (materialized
+  Contest notes inherit this same limitation — see
+  `docs/ARCHITECTURE_NOTES_MATERIALIZATION.md`).
 - A second judge client (AtCoder is the natural next one, given a
   similarly simple public API).
 - Everything explicitly excluded by this task: AI-assisted note

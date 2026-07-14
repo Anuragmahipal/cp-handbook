@@ -9,6 +9,10 @@ Overview                platform / contest / index / rating / source /
                         solved / attempts / time spent -- always present,
                         since ``platform``/``contest``/``index`` are required
                         fields (see ``handbook.models.problem.Problem``)
+Contest                 backlink from ``Contest.problems`` (graph) -- only
+                        appears once a ``Contest`` note for this problem's
+                        contest actually exists; see
+                        ``handbook.materialize``
 Algorithms Used         ``Problem.algorithms`` (graph)
 Patterns Used           ``Problem.patterns`` (graph)
 Mistakes                ``Problem.mistakes`` merged with every
@@ -65,6 +69,15 @@ class ProblemCompiler(Compiler[Problem]):
             target_id=overview_block.id,
         )
         sections = [overview_section]
+
+        contest_pairs = related_pairs(
+            context, item, field_name="problems", direction="in", other_kind="contest"
+        )
+        contest_section = related_section(item, "contest", "Contest", contest_pairs)
+        if contest_section is not None:
+            sections.append(contest_section)
+        else:
+            warnings.append("no contest recorded in the graph.")
 
         algorithms = related_pairs(context, item, field_name="algorithms", direction="out")
         algorithms_section = related_section(item, "algorithms", "Algorithms Used", algorithms)
