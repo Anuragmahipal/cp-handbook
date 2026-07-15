@@ -23,6 +23,7 @@ from handbook.learning.compiler.helpers import (
     base_metadata,
     build_page,
     bulleted_callout,
+    learning_history_section,
     pick_anchor,
     plain_text_block,
     prerequisites_section,
@@ -109,6 +110,10 @@ class PatternCompiler(Compiler[Pattern]):
             sections.append(prerequisites)
         else:
             warnings.append("no prerequisites recorded in the graph.")
+
+        history = learning_history_section(context, item)
+        if history is not None:
+            sections.append(history)
 
         metadata = base_metadata(item, source_kind=item.kind, summary=_summary(item))
         page = build_page(item, metadata, sections)

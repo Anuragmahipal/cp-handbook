@@ -14,6 +14,17 @@ Related Problems        ``Algorithm.related_problems`` merged with every
                         ``Problem.algorithms`` backlink (graph)
 Related Patterns        every ``Pattern.related_algorithms`` backlink (graph)
 Mistakes                every ``Mistake.related_algorithms`` backlink (graph)
+Learning Progress       ``handbook.evolution.stats.algorithm_evolution_stats``
+                        -- total/first/latest solve, solve frequency,
+                        learning velocity (Part 2). Omitted unless a
+                        ``CompilationContext.evolution`` log was supplied
+                        and this algorithm has at least one recorded solve.
+Rating Histogram        ditto, as a ``DiagramBlock`` bar chart
+Recent Activity         ditto, last 5 solves
+Learning History        every recorded evolution event for this item, in
+                        order (Part 4) -- shared with every other compiler
+                        via ``handbook.learning.compiler.helpers.
+                        learning_history_section``
 ======================  =======================================================
 
 Deliberately named after what the domain model actually stores
@@ -31,15 +42,18 @@ compared without expecting them to match section-for-section.
 
 from __future__ import annotations
 
-from handbook.learning.blocks import CodeBlock
+from handbook.evolution.stats import AlgorithmEvolutionStats, algorithm_evolution_stats
+from handbook.learning.blocks import CodeBlock, DiagramBlock, VisualBlock
 from handbook.learning.compiler.base import Compiler
 from handbook.learning.compiler.context import CompilationContext
 from handbook.learning.compiler.helpers import (
     base_metadata,
     bulleted_callout,
     build_page,
+    learning_history_section,
     merge_pairs,
     pick_anchor,
+    plain_section,
     plain_text_block,
     prerequisites_section,
     related_pairs,
@@ -48,7 +62,9 @@ from handbook.learning.compiler.helpers import (
     stable_id,
 )
 from handbook.learning.compiler.result import CompilationResult
-from handbook.learning.enums import CalloutKind, TextRole
+from handbook.learning.enums import CalloutKind, DiagramKind, TextRole
+from handbook.learning.page import Section
+from handbook.learning.richtext import RichText
 from handbook.models.algorithm import Algorithm
 
 _DEFAULT_CODE_LANGUAGE = "cpp"
@@ -162,6 +178,21 @@ class AlgorithmCompiler(Compiler[Algorithm]):
         else:
             warnings.append("no related mistakes found in the graph.")
 
+        history = learning_history_section(context, item)
+        if history is not None:
+            sections.append(history)
+
+        if context.evolution is not None:
+            stats = algorithm_evolution_stats(context.graph, item.id, "algorithms", context.items_by_id)
+            if stats.total_solves > 0:
+                sections.append(_learning_progress_section(item, stats))
+                if stats.rating_histogram:
+                    sections.append(_rating_histogram_section(item, stats))
+                if stats.recent_activity:
+                    sections.append(_recent_activity_section(item, stats))
+            else:
+                warnings.append("no recorded solves yet; Learning Progress sections omitted.")
+
         metadata = base_metadata(
             item,
             source_kind=item.kind,
@@ -199,3 +230,50 @@ def _intuition_prompt(item: Algorithm) -> str:
 
 def _pitfall_prompt(item: Algorithm) -> str:
     return f"What's the pitfall to watch for in {item.title}?"
+
+
+def _learning_progress_section(item: Algorithm, stats: AlgorithmEvolutionStats) -> Section:
+    parts = [
+        f"Solved {stats.total_solves} problem{'s' if stats.total_solves != 1 else ''} "
+        "using this so far."
+    ]
+    if stats.first_solve is not None:
+        parts.append(f"First solved {stats.first_solve.date().isoformat()}.")
+    if stats.latest_solve is not None:
+        parts.append(f"Most recently {stats.latest_solve.date().isoformat()}.")
+    if stats.solve_frequency_per_week is not None:
+        parts.append(f"About {stats.solve_frequency_per_week} problem(s) per week on average.")
+    parts.append(
+        f"{stats.learning_velocity_per_two_weeks} solve(s) in the most recent "
+        "2-week window of activity."
+    )
+    block = plain_text_block(item, "block:evolution-progress", " ".join(parts))
+    return plain_section(item, "evolution-progress", "Learning Progress", (block,))
+
+
+def _rating_histogram_section(item: Algorithm, stats: AlgorithmEvolutionStats) -> Section:
+    elements = tuple(
+        VisualBlock(
+            id=stable_id(item, f"evolution:histogram:{index}"),
+            label=RichText.plain(bucket.label),
+            value=str(bucket.count),
+        )
+        for index, bucket in enumerate(stats.rating_histogram)
+    )
+    diagram = DiagramBlock(
+        id=stable_id(item, "evolution:histogram"),
+        kind=DiagramKind.OTHER,
+        caption="Problems solved, grouped by rating band",
+        elements=elements,
+    )
+    return plain_section(item, "rating-histogram", "Rating Histogram", (diagram,))
+
+
+def _recent_activity_section(item: Algorithm, stats: AlgorithmEvolutionStats) -> Section:
+    lines = [
+        f"{when.date().isoformat()} \u2014 {title}" for title, when in stats.recent_activity
+    ]
+    callout = bulleted_callout(
+        item, "block:recent-activity", kind=CalloutKind.TIP, title="Recent Activity", lines=lines
+    )
+    return plain_section(item, "recent-activity", "Recent Activity", (callout,))

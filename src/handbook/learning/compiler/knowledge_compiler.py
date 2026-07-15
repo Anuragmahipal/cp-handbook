@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from handbook.evolution.log import EvolutionLog
 from handbook.graph import KnowledgeGraph
 from handbook.learning.compiler.context import CompilationContext
 from handbook.learning.compiler.registry import CompilerRegistry, default_registry
@@ -47,11 +48,28 @@ class KnowledgeCompiler:
             subtype. Defaults to :func:`~handbook.learning.compiler.
             registry.default_registry`, covering ``Algorithm``,
             ``Problem``, ``Pattern``, ``Mistake``, ``Contest``.
+        evolution: This vault's learning history, if any -- forwarded
+            unchanged into every :class:`CompilationContext` this
+            compiler builds. See ``CompilationContext.evolution``'s own
+            docstring; omitting it (the default) changes nothing about
+            this class's existing behavior.
+        items_by_id: Forwarded unchanged into every
+            :class:`CompilationContext` this compiler builds -- see
+            ``CompilationContext.items_by_id``.
     """
 
-    def __init__(self, graph: KnowledgeGraph, *, registry: CompilerRegistry | None = None) -> None:
+    def __init__(
+        self,
+        graph: KnowledgeGraph,
+        *,
+        registry: CompilerRegistry | None = None,
+        evolution: EvolutionLog | None = None,
+        items_by_id: dict[str, KnowledgeItem] | None = None,
+    ) -> None:
         self._graph = graph
         self._registry = registry if registry is not None else default_registry()
+        self._evolution = evolution
+        self._items_by_id = items_by_id or {}
 
     def compile(self, item: KnowledgeItem) -> CompilationResult:
         """Compile one ``item`` into a :class:`~handbook.learning.
@@ -63,7 +81,9 @@ class KnowledgeCompiler:
                 registered for ``type(item)`` (or any of its
                 ancestors).
         """
-        context = CompilationContext(graph=self._graph)
+        context = CompilationContext(
+            graph=self._graph, evolution=self._evolution, items_by_id=self._items_by_id
+        )
         return self._registry.compile(item, context)
 
     def compile_all(self, items: Iterable[KnowledgeItem]) -> list[CompilationResult]:

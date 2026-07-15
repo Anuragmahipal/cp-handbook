@@ -39,6 +39,7 @@ from handbook.learning.compiler.helpers import (
     base_metadata,
     bulleted_callout,
     build_page,
+    learning_history_section,
     linked_list_block,
     merge_pairs,
     plain_section,
@@ -123,6 +124,10 @@ class ProblemCompiler(Compiler[Problem]):
             sections.append(prerequisites)
         else:
             warnings.append("no prerequisites recorded in the graph.")
+
+        history = learning_history_section(context, item)
+        if history is not None:
+            sections.append(history)
 
         difficulty_override = None
         if item.difficulty is None and item.rating is not None:

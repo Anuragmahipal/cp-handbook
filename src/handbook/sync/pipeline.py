@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from handbook.evolution import EvolutionLog, EvolutionReport, LearningEvolutionEngine
 from handbook.exceptions import DuplicateItemError
 from handbook.graph import DuplicateReport, GraphBuilder, KnowledgeGraph
 from handbook.handbook import Handbook
@@ -85,6 +86,14 @@ class SyncReport:
     superset of :attr:`notebook_pages` -- the latter is kept around
     unchanged as this chunk's own building block and contract, not
     replaced by it."""
+    evolution: EvolutionReport | None = None
+    """What :class:`~handbook.evolution.engine.LearningEvolutionEngine`
+    recorded this run -- new Problem-solved events, knowledge-growth
+    milestones, and mastery-status changes. See :mod:`handbook.evolution`.
+    Empty (not ``None``) on a run that imported nothing new and whose
+    materialized items' backlink counts/mastery didn't change --
+    ``EvolutionReport.is_empty`` distinguishes "ran and found nothing
+    new" from "never ran"."""
 
 
 def run_sync(
@@ -170,7 +179,11 @@ def run_sync(
     # unaffected by what this run happened to materialize.
     site_items = list(state.known_items()) + materialization.all_items
     site_graph = GraphBuilder(site_items).build()
-    notebook_site = build_notebook_site(vault_root, site_items, site_graph)
+
+    evolution_log = EvolutionLog(vault_root)
+    evolution = LearningEvolutionEngine(evolution_log).evolve(site_items, site_graph)
+
+    notebook_site = build_notebook_site(vault_root, site_items, site_graph, evolution=evolution_log)
 
     state.handle = handle
     state.last_synced_at = datetime.now()
@@ -189,6 +202,7 @@ def run_sync(
         notebook_pages=notebook_pages,
         materialization=materialization,
         notebook_site=notebook_site,
+        evolution=evolution,
     )
 
 

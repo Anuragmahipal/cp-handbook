@@ -452,3 +452,32 @@ def pick_anchor(*candidates: tuple[str, str | None, str]) -> AnchorSpec | None:
         if target_id is not None:
             return qualifier, target_id, prompt_text
     return None
+
+
+# -- evolution-derived "Learning History" section (Part 4) -------------------
+
+
+def learning_history_section(context: CompilationContext, item: KnowledgeItem) -> Section | None:
+    """Every page's chronological learning history -- "Solved / Learned
+    Binary Search / now used by 3 problems / mastery advanced to
+    learning", in the order it actually happened -- built from
+    ``context.evolution`` (see :mod:`handbook.evolution`).
+
+    ``None`` whenever ``context.evolution`` is ``None`` (no evolution
+    log was supplied -- see ``CompilationContext.evolution``'s own
+    docstring) or it has no events yet for this item, the same "omit
+    rather than pad" rule every other optional section here follows.
+    Shared by every compiler in this package rather than reimplemented
+    five times, since it needs nothing kind-specific: an
+    ``EvolutionLog`` entry is already keyed by plain ``item_id``.
+    """
+    if context.evolution is None:
+        return None
+    entries = context.evolution.timeline_entries(item.id)
+    if not entries:
+        return None
+    lines = [f"{entry.when.date().isoformat()} \u2014 {entry.label}" for entry in entries]
+    callout = bulleted_callout(
+        item, "learning-history", kind=CalloutKind.TIP, title="Learning History", lines=lines
+    )
+    return plain_section(item, "learning-history", "Learning History", (callout,))

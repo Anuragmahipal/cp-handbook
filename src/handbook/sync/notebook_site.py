@@ -57,9 +57,13 @@ from pathlib import Path
 
 from handbook.core.folders import resolve_folder
 from handbook.graph import KnowledgeGraph
+from handbook.evolution.events import EventKind
+from handbook.evolution.log import EvolutionLog
+from handbook.evolution.stats import personal_statistics
 from handbook.learning.compiler import KnowledgeCompiler, UnsupportedKnowledgeTypeError
 from handbook.learning.enums import ReviewStatus
 from handbook.learning.page import Page
+from handbook.models import Problem
 from handbook.models.base import KnowledgeItem
 from handbook.renderers.notebook import NotebookRenderer
 from handbook.renderers.notebook.result import RenderResult
@@ -124,7 +128,11 @@ class _TimelineEvent:
 
 
 def build_notebook_site(
-    vault_root: Path, items: Sequence[KnowledgeItem], graph: KnowledgeGraph
+    vault_root: Path,
+    items: Sequence[KnowledgeItem],
+    graph: KnowledgeGraph,
+    *,
+    evolution: EvolutionLog | None = None,
 ) -> NotebookSiteReport:
     """Compile, link, and write one connected notebook site for every
     item in ``items`` this chunk's compiler supports, plus a dashboard
@@ -138,8 +146,18 @@ def build_notebook_site(
     (see ``handbook.materialize`` for why that matters). Items of a
     kind the compiler doesn't support are silently skipped, same as
     :func:`handbook.sync.notebook.compile_notebook_pages`.
+
+    Args:
+        evolution: This vault's learning history
+            (:mod:`handbook.evolution`), if any. Forwarded into every
+            page's compilation (so ``AlgorithmCompiler``'s evolution-
+            stats sections and every compiler's Learning History
+            section can render) and into the dashboard's Personal
+            Statistics card. ``None`` (the default) reproduces this
+            function's exact pre-evolution behavior -- every existing
+            caller of this function keeps working unchanged.
     """
-    entries = _compile_all(items, graph)
+    entries = _compile_all(items, graph, evolution)
     warnings: list[str] = []
 
     link_map = {entry.item.id: entry.rel_path for entry in entries}
@@ -173,6 +191,7 @@ def build_notebook_site(
         entries,
         graph,
         timeline_html=_render_timeline(timeline_events, href_prefix=""),
+        evolution=evolution,
     )
     dashboard_path = notebook_root / _DASHBOARD_FILENAME
     atomic_write(dashboard_path, dashboard_html)
@@ -190,9 +209,10 @@ def build_notebook_site(
 
 
 def _compile_all(
-    items: Sequence[KnowledgeItem], graph: KnowledgeGraph
+    items: Sequence[KnowledgeItem], graph: KnowledgeGraph, evolution: EvolutionLog | None = None
 ) -> list[_CompiledEntry]:
-    compiler = KnowledgeCompiler(graph)
+    items_by_id = {item.id: item for item in items}
+    compiler = KnowledgeCompiler(graph, evolution=evolution, items_by_id=items_by_id)
     renderer = NotebookRenderer()
     entries: list[_CompiledEntry] = []
     for item in items:
@@ -524,8 +544,56 @@ def _render_browse_by_kind(entries: Sequence[_CompiledEntry]) -> str:
     return "".join(cards)
 
 
+def _render_personal_statistics(
+    problems: Sequence[Problem], algorithm_count: int, evolution: EvolutionLog | None
+) -> str:
+    """Part 3's "Personal Statistics" dashboard card. Empty string
+    (nothing rendered) when no evolution log was supplied -- same
+    "omit rather than pad" rule as everywhere else this chunk touches.
+    """
+    if evolution is None:
+        return ""
+    growth_events = sum(1 for event in evolution.events() if event.kind == EventKind.KNOWLEDGE_GROWTH)
+    stats = personal_statistics(
+        problems, algorithm_count=algorithm_count, knowledge_growth_events=growth_events
+    )
+
+    lines = [
+        f"Average rating: {stats.average_rating if stats.average_rating is not None else 'n/a'}",
+        f"Rating growth: {_format_signed(stats.rating_growth)}",
+        f"Algorithms learned: {stats.algorithms_learned}",
+        f"Weekly solves: {stats.weekly_solves}",
+        f"Monthly solves: {stats.monthly_solves}",
+        f"Current solve streak: {stats.current_streak_days} day(s) "
+        f"(longest: {stats.longest_streak_days})",
+        f"Knowledge growth events recorded: {stats.knowledge_growth_events}",
+    ]
+    if stats.topic_distribution:
+        top = ", ".join(f"{name} ({count}×)" for name, count in stats.topic_distribution[:5])
+        lines.append(f"Topic distribution: {top}")
+
+    items_html = "".join(f"<li>{escape(line)}</li>" for line in lines)
+    return (
+        '<section class="site-dashboard-card" id="personal-statistics">'
+        "<h2>Personal Statistics</h2>"
+        f'<ul class="site-list">{items_html}</ul>'
+        "</section>"
+    )
+
+
+def _format_signed(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    sign = "+" if value >= 0 else ""
+    return f"{sign}{value}"
+
+
 def _render_dashboard(
-    entries: Sequence[_CompiledEntry], graph: KnowledgeGraph, *, timeline_html: str
+    entries: Sequence[_CompiledEntry],
+    graph: KnowledgeGraph,
+    *,
+    timeline_html: str,
+    evolution: EvolutionLog | None = None,
 ) -> str:
     counts = Counter(entry.item.kind for entry in entries)
     problems = [e for e in entries if e.item.kind == "problem"]
@@ -608,6 +676,9 @@ def _render_dashboard(
     )
 
     browse_html = _render_browse_by_kind(entries)
+    personal_stats_html = _render_personal_statistics(
+        [e.item for e in problems if isinstance(e.item, Problem)], len(algorithms), evolution
+    )
 
     return (
         "<!doctype html>\n"
@@ -624,6 +695,7 @@ def _render_dashboard(
         '<div class="site-main">\n'
         '<h1 class="site-dashboard-title">Notebook</h1>\n'
         f'<div class="site-stat-grid">{stats_html}</div>\n'
+        f"{personal_stats_html}\n"
         f"{sections_html}\n"
         f"{browse_html}\n"
         '<section class="site-dashboard-card">'

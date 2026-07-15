@@ -213,6 +213,16 @@ def _print_report(report: SyncReport) -> None:
             f"dashboard at {report.notebook_site.dashboard_path}"
         )
 
+    if report.evolution is not None and not report.evolution.is_empty:
+        parts = []
+        if report.evolution.learning_events:
+            parts.append(f"{len(report.evolution.learning_events)} new learning event(s)")
+        if report.evolution.knowledge_growth:
+            parts.append(f"{len(report.evolution.knowledge_growth)} knowledge growth update(s)")
+        if report.evolution.mastery_changes:
+            parts.append(f"{len(report.evolution.mastery_changes)} mastery change(s)")
+        console.print("Evolution: " + ", ".join(parts))
+
     console.print(
         f"\n[bold]{report.total_known_problems}[/bold] known problems  \u00b7  "
         f"graph: {report.graph_node_count} nodes / {report.graph_edge_count} edges"
