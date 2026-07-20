@@ -363,13 +363,10 @@ def _timeline_events(
     entries: Sequence[_CompiledEntry], link_map: dict[str, str]
 ) -> list[_TimelineEvent]:
     """One event per item, in chronological order -- the vault's own
-    history, not a per-page-filtered view (see the module's chunk
-    brief: the sidebar's own worked example reads as one shared feed,
-    not five different ones). Every event's timestamp is the item's own
-    ``created_at`` -- for a synced ``Problem`` that's when it entered
-    the vault; for a materialized note it's when the Materialization
-    Engine first gave it a page. Nothing here is invented: it is
-    exactly the same timestamp already sitting on the item.
+    history. For Problems, the timestamp is ``solved_at`` (or
+    ``first_attempted_at`` for unsolved), not ``created_at``, so the
+    timeline reflects when the user actually solved the problem on
+    Codeforces, not when sync ran.
     """
     events: list[_TimelineEvent] = []
     for entry in entries:
@@ -378,7 +375,19 @@ def _timeline_events(
         label = _timeline_label(entry)
         if label is None:
             continue
-        events.append(_TimelineEvent(when=item.created_at, label=label, rel_path=rel_path))
+
+        # Use historical timestamps for Problems
+        if item.kind == "problem" and hasattr(item, "solved_at"):
+            if item.solved_at is not None:
+                when = item.solved_at
+            elif hasattr(item, "first_attempted_at") and item.first_attempted_at is not None:
+                when = item.first_attempted_at
+            else:
+                when = item.created_at
+        else:
+            when = item.created_at
+
+        events.append(_TimelineEvent(when=when, label=label, rel_path=rel_path))
     events.sort(key=lambda event: event.when)
     return events
 
@@ -610,9 +619,11 @@ def _render_dashboard(
         ]
     )
 
-    recently_solved = sorted(problems, key=lambda e: e.item.created_at, reverse=True)[
-        :_DASHBOARD_LIST_LIMIT
-    ]
+    recently_solved = sorted(
+        (e for e in problems if getattr(e.item, "solved", True)),
+        key=lambda e: getattr(e.item, "solved_at", e.item.created_at) or e.item.created_at,
+        reverse=True,
+    )[:_DASHBOARD_LIST_LIMIT]
     recently_solved_html = _linked_list([(e.item.title, e.rel_path) for e in recently_solved])
 
     weak_areas = sorted(

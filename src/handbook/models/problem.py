@@ -19,6 +19,14 @@ class Problem(KnowledgeItem):
     Submission history is the source of truth for ``solved``, ``attempts``,
     ``first_attempted_at``, and ``solved_at``. These are derived from the
     :attr:`submissions` list, never set independently.
+
+    ``created_at`` and ``updated_at`` (inherited from ``KnowledgeItem``)
+    are overridden to reflect historical timestamps from Codeforces:
+    ``created_at`` = when the first submission was made,
+    ``updated_at`` = when the first accepted submission was made (or the
+    last submission time if never solved). This ensures every downstream
+    consumer -- evolution engine, stats, dashboard, timeline -- reads
+    the correct historical date without needing to know about submissions.
     """
 
     KIND: ClassVar[str] = "problem"
@@ -96,12 +104,15 @@ class Problem(KnowledgeItem):
         return result
 
     def model_post_init(self, __context: object) -> None:
-        """Derive ``solved``, ``attempts``, ``first_attempted_at``, and
-        ``solved_at`` from :attr:`submissions` after validation."""
+        """Derive ``solved``, ``attempts``, ``first_attempted_at``,
+        ``solved_at``, and propagate historical timestamps to
+        ``created_at``/``updated_at`` after validation."""
         self._derive_from_submissions()
 
     def _derive_from_submissions(self) -> None:
-        """Recompute all derived fields from the submission history.
+        """Recompute all derived fields from the submission history
+        and propagate historical timestamps to ``created_at`` and
+        ``updated_at``.
 
         Called automatically after init/validation, and may be called
         explicitly after appending new submissions.
@@ -117,13 +128,21 @@ class Problem(KnowledgeItem):
         self.attempts = len(sorted_subs)
         self.first_attempted_at = sorted_subs[0].creation_time
 
+        # Propagate to KnowledgeItem timestamps so every downstream
+        # consumer (evolution, stats, dashboard, timeline) reads the
+        # correct historical date without knowing about submissions.
+        self.created_at = self.first_attempted_at
+
         ac_subs = [s for s in sorted_subs if s.accepted]
         if ac_subs:
             self.solved = True
             self.solved_at = ac_subs[0].creation_time
+            self.updated_at = self.solved_at
         else:
             self.solved = False
             self.solved_at = None
+            # If never solved, updated_at = last submission time
+            self.updated_at = sorted_subs[-1].creation_time
 
     @computed_field  # type: ignore[prop-decorator]
     @property

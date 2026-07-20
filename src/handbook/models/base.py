@@ -17,7 +17,7 @@ directly instead of parsing prose.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import ClassVar
 from uuid import uuid4
 
@@ -141,8 +141,8 @@ class KnowledgeItem(BaseModel):
     notes: str = ""
 
     # -- timestamps -----------------------------------------------------
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @computed_field  # type: ignore[prop-decorator]
     @property

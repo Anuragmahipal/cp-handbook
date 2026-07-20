@@ -1,6 +1,6 @@
 """``LearningEvolutionEngine``: turns "what does the vault look like
 right now" into "what changed since I last looked", recorded as
-:class:`~handbook.evolution.events.LearningEvent`\\ s.
+:class:`~handbook.evolution.events.LearningEvent` s.
 
 This is the only piece of ``handbook.evolution`` that writes anything.
 Everything in :mod:`handbook.evolution.stats` is a pure, side-effect-
@@ -88,8 +88,15 @@ def mastery_for_count(count: int) -> ReviewStatus:
     return status
 
 
-def _solved_event_id(problem_id: str) -> str:
-    return str(uuid5(_ID_NAMESPACE, f"solved:{problem_id}"))
+def _solved_event_id(problem_id: str, creation_time_seconds: int) -> str:
+    """Deterministic id from problem id AND the submission timestamp.
+
+    Using the raw creationTimeSeconds (not a formatted datetime) ensures
+    the id is stable across timezones and string-format changes. Two
+    events for the same problem at different times get different ids;
+    the same event replayed gets the same id.
+    """
+    return str(uuid5(_ID_NAMESPACE, f"solved:{problem_id}:{creation_time_seconds}"))
 
 
 def _growth_event_id(item_id: str, new_total: int) -> str:
@@ -119,7 +126,11 @@ def _latest_backlink_time(graph: KnowledgeGraph, item_id: str, field_name: str, 
             continue
         item = items_by_id.get(node.id)
         if item is not None:
-            times.append(item.created_at)
+            # For Problems, use solved_at (historical) not created_at
+            if hasattr(item, "solved_at") and item.solved_at is not None:
+                times.append(item.solved_at)
+            else:
+                times.append(item.created_at)
     return max(times) if times else None
 
 
@@ -139,7 +150,7 @@ class EvolutionReport:
 
 
 class LearningEvolutionEngine:
-    """Records this run's :class:`~handbook.evolution.events.LearningEvent`\\ s
+    """Records this run's :class:`~handbook.evolution.events.LearningEvent` s
     into an :class:`~handbook.evolution.log.EvolutionLog`.
 
     Args:
@@ -184,14 +195,28 @@ class LearningEvolutionEngine:
         for item in items:
             if item.kind != "problem":
                 continue
+
+            # Use historical timestamps from the Problem, not sync time
             solved = getattr(item, "solved", True)
             kind = EventKind.SOLVED if solved else EventKind.ATTEMPTED
             verb = "Solved" if solved else "Attempted"
+
+            # When: solved_at for solved problems, first_attempted_at for unsolved
+            if solved and hasattr(item, "solved_at") and item.solved_at is not None:
+                when = item.solved_at
+                creation_time_seconds = int(when.timestamp())
+            elif hasattr(item, "first_attempted_at") and item.first_attempted_at is not None:
+                when = item.first_attempted_at
+                creation_time_seconds = int(when.timestamp())
+            else:
+                when = item.created_at
+                creation_time_seconds = int(when.timestamp())
+
             event = LearningEvent(
-                id=_solved_event_id(item.id),
+                id=_solved_event_id(item.id, creation_time_seconds),
                 kind=kind,
                 item_id=item.id,
-                when=item.created_at,
+                when=when,
                 summary=f"{verb} {item.title}",
             )
             if self._log.append(event):
@@ -241,8 +266,7 @@ class LearningEvolutionEngine:
                     item_id=item.id,
                     when=fallback_when,
                     summary=(
-                        f"{item.title}: mastery advanced from "
-                        f"{previous_status.value} to {new_status.value}"
+                        f"{item.title}: mastery {previous_status.value} → {new_status.value}"
                     ),
                     previous_status=previous_status,
                     new_status=new_status,

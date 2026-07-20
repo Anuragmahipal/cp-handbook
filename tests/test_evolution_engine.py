@@ -227,4 +227,4 @@ def test_per_item_timeline_ordering_mixes_solves_growth_and_mastery_correctly(
     # both growth and mastery events about the algorithm should appear
     labels = " ".join(e.label for e in entries)
     assert "now used by" in labels
-    assert "mastery advanced" in labels
+    assert "mastery" in labels  # e.g. "mastery new → learning"

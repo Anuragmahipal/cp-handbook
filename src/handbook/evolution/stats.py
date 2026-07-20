@@ -39,6 +39,18 @@ _VELOCITY_WINDOW = timedelta(days=14)
 _STREAK_GAP_TOLERANCE = timedelta(days=1)
 
 
+def _problem_solve_time(problem: Problem) -> datetime | None:
+    """The canonical timestamp for when a problem was solved.
+
+    Uses ``solved_at`` (the first AC submission time) when available,
+    falling back to ``created_at`` for backward compatibility with
+    Problems that don't have submission history.
+    """
+    if hasattr(problem, "solved_at") and problem.solved_at is not None:
+        return problem.solved_at
+    return problem.created_at
+
+
 def backlink_problems(
     graph: KnowledgeGraph, item_id: str, field_name: str, items_by_id: dict[str, KnowledgeItem]
 ) -> list[Problem]:
@@ -94,11 +106,12 @@ def algorithm_evolution_stats(
     items_by_id: dict[str, KnowledgeItem],
 ) -> AlgorithmEvolutionStats:
     problems = sorted(
-        backlink_problems(graph, item_id, field_name, items_by_id), key=lambda p: p.created_at
+        backlink_problems(graph, item_id, field_name, items_by_id),
+        key=_problem_solve_time,
     )
     total = len(problems)
-    first_solve = problems[0].created_at if problems else None
-    latest_solve = problems[-1].created_at if problems else None
+    first_solve = _problem_solve_time(problems[0]) if problems else None
+    latest_solve = _problem_solve_time(problems[-1]) if problems else None
 
     frequency = None
     if total >= 2 and first_solve is not None and latest_solve is not None:
@@ -106,8 +119,8 @@ def algorithm_evolution_stats(
         frequency = round(total / span_weeks, 2)
 
     histogram = _rating_histogram(problems)
-    recent = [(p.title, p.created_at) for p in problems[-_RECENT_ACTIVITY_LIMIT:][::-1]]
-    progression = [(p.title, p.created_at, p.rating) for p in problems]
+    recent = [(p.title, _problem_solve_time(p)) for p in problems[-_RECENT_ACTIVITY_LIMIT:][::-1]]
+    progression = [(p.title, _problem_solve_time(p), p.rating) for p in problems]
     velocity = _learning_velocity(problems)
 
     return AlgorithmEvolutionStats(
@@ -162,9 +175,14 @@ def _learning_velocity(problems: Sequence[Problem]) -> int:
     """
     if not problems:
         return 0
-    reference = problems[-1].created_at
+    reference = _problem_solve_time(problems[-1])
+    if reference is None:
+        return 0
     window_start = reference - _VELOCITY_WINDOW
-    return sum(1 for p in problems if window_start <= p.created_at <= reference)
+    return sum(
+        1 for p in problems
+        if (t := _problem_solve_time(p)) is not None and window_start <= t <= reference
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,13 +207,17 @@ def personal_statistics(
     algorithm_count: int,
     knowledge_growth_events: int,
 ) -> PersonalStatistics:
-    solved = sorted((p for p in problems if getattr(p, "solved", True)), key=lambda p: p.created_at)
+    # Only count solved problems, sorted by solve time
+    solved = sorted(
+        (p for p in problems if getattr(p, "solved", True)),
+        key=_problem_solve_time,
+    )
     rated = [p for p in solved if p.rating is not None]
 
     average_rating = round(sum(p.rating for p in rated) / len(rated), 1) if rated else None
     rating_growth = _rating_growth(rated)
 
-    reference = solved[-1].created_at if solved else None
+    reference = _problem_solve_time(solved[-1]) if solved else None
     weekly = _solves_in_window(solved, reference, timedelta(days=7))
     monthly = _solves_in_window(solved, reference, timedelta(days=30))
 
@@ -243,19 +265,28 @@ def _solves_in_window(
     if reference is None:
         return 0
     start = reference - window
-    return sum(1 for p in solved if start <= p.created_at <= reference)
+    return sum(
+        1 for p in solved
+        if (t := _problem_solve_time(p)) is not None and start <= t <= reference
+    )
 
 
 def _solve_streaks(solved: Sequence[Problem]) -> tuple[int, int]:
     """Consecutive-day solve streaks, from each problem's own solve
-    date (``created_at.date()``). ``current_streak_days`` is the streak
+    date (``solved_at.date()``). ``current_streak_days`` is the streak
     ending on the *last* day anything was solved (not necessarily
     today's wall-clock date -- see the module docstring on why this
     module anchors to the vault's own activity, not real time).
     """
     if not solved:
         return 0, 0
-    days = sorted({p.created_at.date() for p in solved})
+    days = sorted({
+        t.date()
+        for p in solved
+        if (t := _problem_solve_time(p)) is not None
+    })
+    if not days:
+        return 0, 0
     longest = 1
     current = 1
     for previous_day, day in zip(days, days[1:]):
