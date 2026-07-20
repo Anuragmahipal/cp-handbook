@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from handbook.models import Submission
 from handbook.models.enums import Difficulty, Platform, ProblemSource
 from handbook.sync.codeforces import CFProblem, CFSubmission
 from handbook.sync.mapping import (
     build_problem_item,
+    build_submission,
     difficulty_from_rating,
     source_from_participant_type,
     time_spent_minutes,
@@ -75,10 +77,83 @@ def test_topic_name_for_unknown_tag_falls_back_to_title_case():
     assert topic_name_for_tag("some-new-tag") == "Some-New-Tag"
 
 
+# -- build_submission ----------------------------------------------------
+
+
+def test_build_submission_maps_all_fields():
+    problem = CFProblem(
+        contest_id=1868,
+        problemset_name=None,
+        index="A",
+        name="Test Problem",
+        type="PROGRAMMING",
+        rating=1200,
+        tags=("dp",),
+    )
+    cf_sub = CFSubmission(
+        id=42,
+        contest_id=1868,
+        creation_time=datetime.now(),
+        creation_time_seconds=1_700_000_000,
+        relative_time_seconds=600,
+        problem=problem,
+        verdict="OK",
+        participant_type="CONTESTANT",
+        programming_language="GNU C++20",
+        time_consumed_ms=30,
+        memory_consumed_bytes=1000,
+        passed_test_count=10,
+    )
+
+    sub = build_submission(cf_sub)
+
+    assert sub.id == 42
+    assert sub.problem_key == "1868A"
+    assert sub.contest_id == 1868
+    assert sub.creation_time_seconds == 1_700_000_000
+    assert sub.verdict == "OK"
+    assert sub.programming_language == "GNU C++20"
+    assert sub.time_consumed_ms == 30
+    assert sub.memory_consumed_bytes == 1000
+    assert sub.passed_test_count == 10
+    assert sub.accepted is True
+
+
+def test_build_submission_preserves_wrong_answer_verdict():
+    problem = CFProblem(
+        contest_id=1868,
+        problemset_name=None,
+        index="A",
+        name="Test Problem",
+        type="PROGRAMMING",
+        rating=1200,
+        tags=(),
+    )
+    cf_sub = CFSubmission(
+        id=1,
+        contest_id=1868,
+        creation_time=datetime.now(),
+        creation_time_seconds=1_700_000_000,
+        relative_time_seconds=300,
+        problem=problem,
+        verdict="WRONG_ANSWER",
+        participant_type="CONTESTANT",
+        programming_language="Python 3",
+        time_consumed_ms=15,
+        memory_consumed_bytes=500,
+        passed_test_count=3,
+    )
+
+    sub = build_submission(cf_sub)
+
+    assert sub.verdict == "WRONG_ANSWER"
+    assert sub.accepted is False
+
+
 # -- build_problem_item ----------------------------------------------------
 
 
-def _submission(
+def _cf_submission(
     *,
     contest_id: int | None = 1868,
     index: str = "A",
@@ -87,6 +162,8 @@ def _submission(
     relative_time_seconds: int | None = 600,
     participant_type: str | None = "CONTESTANT",
     problemset_name: str | None = None,
+    verdict: str = "OK",
+    creation_time_seconds: int = 1_700_000_000,
 ) -> CFSubmission:
     problem = CFProblem(
         contest_id=contest_id,
@@ -100,19 +177,24 @@ def _submission(
     return CFSubmission(
         id=1,
         contest_id=contest_id,
-        creation_time=datetime.now(),
+        creation_time=datetime.fromtimestamp(creation_time_seconds),
+        creation_time_seconds=creation_time_seconds,
         relative_time_seconds=relative_time_seconds,
         problem=problem,
-        verdict="OK",
+        verdict=verdict,
         participant_type=participant_type,
         programming_language="GNU C++20",
+        time_consumed_ms=30,
+        memory_consumed_bytes=1000,
+        passed_test_count=10,
     )
 
 
 def test_build_problem_item_maps_every_field():
-    submission = _submission()
+    cf_sub = _cf_submission()
+    history = [build_submission(cf_sub)]
 
-    item = build_problem_item(submission, prior_wrong_attempts=2)
+    item = build_problem_item(cf_sub, submission_history=history)
 
     assert item.title == "Test Problem"
     assert item.platform == Platform.CODEFORCES
@@ -128,26 +210,67 @@ def test_build_problem_item_maps_every_field():
         "Dynamic Programming",
         "Implementation",
     }
-    assert item.solved is True
-    assert item.attempts == 3  # 2 prior wrong + this AC
-    assert item.time_spent_minutes == 10  # 600 seconds
+    assert item.is_solved is True
+    assert item.attempt_count == 1
+    assert item.time_spent_minutes == 10
 
 
 def test_build_problem_item_without_contest_id_uses_problemset_name():
-    submission = _submission(contest_id=None, problemset_name="acmsguru", index="101")
+    cf_sub = _cf_submission(contest_id=None, problemset_name="acmsguru")
+    history = [build_submission(cf_sub)]
 
-    item = build_problem_item(submission, prior_wrong_attempts=0)
+    item = build_problem_item(cf_sub, submission_history=history)
 
     assert item.contest == "acmsguru"
     assert item.contest_id is None
     assert item.url == ""
-    assert item.attempts == 1
-    assert item.time_spent_minutes is None  # no contest clock to speak of
 
 
 def test_build_problem_item_first_try_has_one_attempt():
-    submission = _submission()
+    cf_sub = _cf_submission()
+    history = [build_submission(cf_sub)]
 
-    item = build_problem_item(submission, prior_wrong_attempts=0)
+    item = build_problem_item(cf_sub, submission_history=history)
 
-    assert item.attempts == 1
+    assert item.attempt_count == 1
+    assert item.is_solved is True
+
+
+def test_build_problem_item_counts_multiple_attempts():
+    """A problem with WA -> WA -> TLE -> AC should have 4 attempts."""
+    wa1 = _cf_submission(verdict="WRONG_ANSWER", creation_time_seconds=1_700_000_000)
+    wa2 = _cf_submission(verdict="WRONG_ANSWER", creation_time_seconds=1_700_000_100)
+    tle = _cf_submission(
+        verdict="TIME_LIMIT_EXCEEDED", creation_time_seconds=1_700_000_200
+    )
+    ac = _cf_submission(verdict="OK", creation_time_seconds=1_700_000_300)
+
+    history = [
+        build_submission(wa1),
+        build_submission(wa2),
+        build_submission(tle),
+        build_submission(ac),
+    ]
+
+    item = build_problem_item(ac, submission_history=history)
+
+    assert item.attempt_count == 4
+    assert item.is_solved is True
+    assert item.verdict_sequence == [
+        "WRONG_ANSWER",
+        "WRONG_ANSWER",
+        "TIME_LIMIT_EXCEEDED",
+        "OK",
+    ]
+
+
+def test_build_problem_item_unsolved_has_zero_solved_at():
+    """A problem with only WA submissions should be unsolved."""
+    wa = _cf_submission(verdict="WRONG_ANSWER")
+    history = [build_submission(wa)]
+
+    item = build_problem_item(wa, submission_history=history)
+
+    assert item.is_solved is False
+    assert item.solved_at is None
+    assert item.attempt_count == 1

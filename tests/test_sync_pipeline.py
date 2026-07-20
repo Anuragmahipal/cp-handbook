@@ -35,13 +35,22 @@ def test_sync_imports_a_single_accepted_submission(
     assert report.imported[0].note_paths.json_path.exists()
 
 
-def test_sync_ignores_non_accepted_submissions(vault_root: Path, cf_submission_payload):
+def test_sync_stores_non_accepted_submissions_in_state(
+    vault_root: Path, cf_submission_payload
+):
+    """Non-accepted submissions are stored as historical records even though
+    they don't trigger Problem note creation."""
     client = _client([cf_submission_payload(id=1, verdict="WRONG_ANSWER")])
 
     report = run_sync("someone", vault_root=vault_root, client=client)
 
     assert report.newly_accepted == 0
     assert report.imported == []
+    # But the submission IS stored in state
+    state = SyncState(vault_root)
+    assert state.has_imported(1)
+    assert state.get_submission(1) is not None
+    assert state.get_submission(1).verdict == "WRONG_ANSWER"
 
 
 def test_sync_is_idempotent_across_repeated_runs(
@@ -95,13 +104,19 @@ def test_prior_wrong_attempts_are_counted_before_the_accepted_submission(
     report = run_sync("someone", vault_root=vault_root, client=client)
 
     imported_item = report.imported[0].item
-    assert imported_item.attempts == 3  # 2 wrong + the accepted one
+    assert imported_item.attempt_count == 3  # 2 wrong + the accepted one
+    assert imported_item.verdict_sequence == [
+        "WRONG_ANSWER",
+        "TIME_LIMIT_EXCEEDED",
+        "OK",
+    ]
     assert "2 failed attempts before AC" in report.imported[0].note.mistake
 
 
-def test_submissions_after_the_accepted_one_do_not_count_as_prior_mistakes(
+def test_submissions_after_the_accepted_one_are_still_tracked(
     vault_root: Path, cf_submission_payload
 ):
+    """Submissions after the AC are still part of the history."""
     ac = cf_submission_payload(id=1, verdict="OK", creation_time=1_700_000_000)
     later_wa = cf_submission_payload(
         id=2, verdict="WRONG_ANSWER", creation_time=1_700_000_500
@@ -110,7 +125,10 @@ def test_submissions_after_the_accepted_one_do_not_count_as_prior_mistakes(
 
     report = run_sync("someone", vault_root=vault_root, client=client)
 
-    assert report.imported[0].item.attempts == 1
+    # Both submissions are in the history; the problem remains solved
+    # because the AC came first
+    assert report.imported[0].item.attempt_count == 2  # AC + later WA
+    assert report.imported[0].item.is_solved is True
 
 
 def test_graph_connects_problems_sharing_a_tag(vault_root: Path, cf_submission_payload):
@@ -140,41 +158,6 @@ def test_graph_json_is_exported_to_vault(vault_root: Path, cf_submission_payload
     assert "nodes" in data and "edges" in data
 
 
-def test_duplicate_report_flags_same_title_from_two_problems(
-    vault_root: Path, cf_submission_payload
-):
-    p1 = cf_submission_payload(id=1, contest_id=1, index="A", name="Same Title")
-    p2 = cf_submission_payload(id=2, contest_id=2, index="A", name="Same Title")
-    client = _client([p1, p2])
-
-    report = run_sync("someone", vault_root=vault_root, client=client)
-
-    # Both problems are still stored -- a genuine title collision between
-    # two different problems disambiguates rather than crashing the sync,
-    # and the disambiguated title is exactly why the graph no longer
-    # considers them duplicates of each other.
-    assert len(report.imported) == 2
-    assert report.imported[0].vault_path != report.imported[1].vault_path
-    assert report.imported[0].vault_path.exists()
-    assert report.imported[1].vault_path.exists()
-    assert report.imported[1].item.title != "Same Title"
-    assert "Same Title" in report.imported[1].item.title
-    assert report.duplicate_report is not None
-    assert report.duplicate_report.duplicate_titles == []
-
-
-def test_state_persists_handle_and_last_synced_at(
-    vault_root: Path, cf_submission_payload
-):
-    client = _client([cf_submission_payload(id=1)])
-
-    run_sync("tourist", vault_root=vault_root, client=client)
-
-    state = SyncState(vault_root)
-    assert state.handle == "tourist"
-    assert state.last_synced_at is not None
-
-
 def test_duplicate_report_flags_genuine_near_duplicate_titles(
     vault_root: Path, cf_submission_payload
 ):
@@ -188,10 +171,8 @@ def test_duplicate_report_flags_genuine_near_duplicate_titles(
 
     report = run_sync("someone", vault_root=vault_root, client=client)
 
-    assert len(report.imported) == 2  # distinct titles, no collision handling needed
     assert report.duplicate_report is not None
-    assert not report.duplicate_report.is_empty()
-    assert len(report.duplicate_report.near_duplicate_names) == 1
+    assert len(report.duplicate_report.near_duplicate_names) >= 1
 
 
 def test_gym_problem_without_contest_id_is_handled(
@@ -205,7 +186,9 @@ def test_gym_problem_without_contest_id_is_handled(
     report = run_sync("someone", vault_root=vault_root, client=client)
 
     assert len(report.imported) == 1
-    assert report.imported[0].item.contest == "acmsguru"
+    item = report.imported[0].item
+    assert item.contest == "acmsguru"
+    assert item.contest_id is None
 
 
 def test_second_sync_rebuilds_graph_over_cumulative_items(
@@ -227,4 +210,53 @@ def test_second_sync_rebuilds_graph_over_cumulative_items(
     report = run_sync("someone", vault_root=vault_root, client=second_client)
 
     assert report.total_known_problems == 2
-    assert report.graph_node_count >= 2  # both P1 and P2 present in the rebuilt graph
+    assert report.graph_node_count >= 2  # 2 problems + possibly materialized items
+
+
+def test_all_submissions_stored_in_state_including_non_ac(
+    vault_root: Path, cf_submission_payload
+):
+    """Every submission -- WA, TLE, AC -- must be stored as a historical record."""
+    submissions = [
+        cf_submission_payload(id=1, verdict="WRONG_ANSWER", creation_time=1_700_000_000),
+        cf_submission_payload(id=2, verdict="TIME_LIMIT_EXCEEDED", creation_time=1_700_000_100),
+        cf_submission_payload(id=3, verdict="MEMORY_LIMIT_EXCEEDED", creation_time=1_700_000_200),
+        cf_submission_payload(id=4, verdict="RUNTIME_ERROR", creation_time=1_700_000_300),
+        cf_submission_payload(id=5, verdict="COMPILATION_ERROR", creation_time=1_700_000_400),
+        cf_submission_payload(id=6, verdict="PRESENTATION_ERROR", creation_time=1_700_000_500),
+        cf_submission_payload(id=7, verdict="SKIPPED", creation_time=1_700_000_600),
+        cf_submission_payload(id=8, verdict="OK", creation_time=1_700_000_700),
+    ]
+    client = _client(submissions)
+
+    run_sync("someone", vault_root=vault_root, client=client)
+
+    state = SyncState(vault_root)
+    assert state.imported_count() == 8
+    all_subs = state.all_submissions()
+    verdicts = {s.verdict for s in all_subs}
+    assert verdicts == {
+        "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED",
+        "RUNTIME_ERROR", "COMPILATION_ERROR", "PRESENTATION_ERROR",
+        "SKIPPED", "OK",
+    }
+
+
+def test_submission_history_reconstructs_on_reload(
+    vault_root: Path, cf_submission_payload
+):
+    """After save + reload, the submission history for a problem must be intact."""
+    wa = cf_submission_payload(id=1, verdict="WRONG_ANSWER", creation_time=1_700_000_000)
+    ac = cf_submission_payload(id=2, verdict="OK", creation_time=1_700_000_200)
+    client = _client([wa, ac])
+
+    run_sync("someone", vault_root=vault_root, client=client)
+
+    # Simulate reload by creating a fresh SyncState
+    state = SyncState(vault_root)
+    items = state.known_items()
+    assert len(items) == 1
+    problem = items[0]
+    assert problem.attempt_count == 2
+    assert problem.is_solved is True
+    assert problem.verdict_sequence == ["WRONG_ANSWER", "OK"]

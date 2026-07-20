@@ -39,6 +39,10 @@ def cf_submission_payload():
         creation_time: int = 1_700_000_000,
         relative_time: int | None = 300,
         participant_type: str | None = "CONTESTANT",
+        programming_language: str = "GNU C++20",
+        time_consumed_ms: int = 30,
+        memory_consumed_bytes: int = 1000,
+        passed_test_count: int = 10,
     ) -> dict:
         return {
             "id": id,
@@ -55,13 +59,12 @@ def cf_submission_payload():
                 "tags": list(tags),
             },
             "author": {"participantType": participant_type},
-            "programmingLanguage": "GNU C++20",
+            "programmingLanguage": programming_language,
             "verdict": verdict,
             "testset": "TESTS",
-            "passedTestCount": 10,
-            "timeConsumedMillis": 30,
-            "memoryConsumedBytes": 1000,
+            "passedTestCount": passed_test_count,
+            "timeConsumedMillis": time_consumed_ms,
+            "memoryConsumedBytes": memory_consumed_bytes,
         }
 
     return _build
-

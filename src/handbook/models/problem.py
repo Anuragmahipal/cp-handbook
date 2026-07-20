@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import ClassVar
 
-from pydantic import Field, field_validator
+from pydantic import Field, computed_field, field_validator
 
 from handbook.models.base import KnowledgeItem, Relation, coerce_relations
 from handbook.models.enums import Platform, ProblemSource, RelationType
+from handbook.models.submission import Submission
 
 
 class Problem(KnowledgeItem):
     """A single problem instance: which platform, which contest, which
     algorithms/patterns it drew on, and whether/how it was solved.
+
+    Submission history is the source of truth for ``solved``, ``attempts``,
+    ``first_attempted_at``, and ``solved_at``. These are derived from the
+    :attr:`submissions` list, never set independently.
     """
 
     KIND: ClassVar[str] = "problem"
@@ -33,8 +39,29 @@ class Problem(KnowledgeItem):
     patterns: list[Relation] = Field(default_factory=list)
     mistakes: list[Relation] = Field(default_factory=list)
 
+    # -- submission history (source of truth) ----------------------------
+    submissions: list[Submission] = Field(default_factory=list)
+    """Every submission made for this problem, in chronological order.
+    This list is the single source of truth for solved status, attempt
+    count, and all timing metadata."""
+
+    # -- derived fields (kept for backward compat in serialization) --------
     solved: bool = True
+    """Deprecated: use :attr:`is_solved` instead. Kept for serialization
+    compatibility; always overwritten by ``_derive_from_submissions``."""
+
     attempts: int = Field(default=1, ge=0)
+    """Deprecated: use :attr:`attempt_count` instead. Kept for serialization
+    compatibility; always overwritten by ``_derive_from_submissions``."""
+
+    first_attempted_at: datetime | None = None
+    """When the first submission for this problem was made.
+    Derived from the earliest submission in :attr:`submissions`."""
+
+    solved_at: datetime | None = None
+    """When the first accepted submission for this problem was made.
+    ``None`` if the problem has been attempted but never solved."""
+
     time_spent_minutes: int | None = Field(default=None, ge=0)
 
     @field_validator("contest", "index")
@@ -53,3 +80,89 @@ class Problem(KnowledgeItem):
     @classmethod
     def _coerce_mistakes(cls, v: object) -> object:
         return coerce_relations(v, default_type=RelationType.RELATED)
+
+    @field_validator("submissions", mode="before")
+    @classmethod
+    def _coerce_submissions(cls, v: object) -> object:
+        """Accept plain dicts and convert them to Submission objects."""
+        if not isinstance(v, list):
+            return v
+        result: list[Submission] = []
+        for item in v:
+            if isinstance(item, dict):
+                result.append(Submission.from_dict(item))
+            elif isinstance(item, Submission):
+                result.append(item)
+        return result
+
+    def model_post_init(self, __context: object) -> None:
+        """Derive ``solved``, ``attempts``, ``first_attempted_at``, and
+        ``solved_at`` from :attr:`submissions` after validation."""
+        self._derive_from_submissions()
+
+    def _derive_from_submissions(self) -> None:
+        """Recompute all derived fields from the submission history.
+
+        Called automatically after init/validation, and may be called
+        explicitly after appending new submissions.
+        """
+        if not self.submissions:
+            # No submissions yet -- keep defaults (backward compat)
+            return
+
+        # Sort by creation time to ensure determinism
+        sorted_subs = sorted(self.submissions, key=lambda s: s.creation_time_seconds)
+        self.submissions = sorted_subs
+
+        self.attempts = len(sorted_subs)
+        self.first_attempted_at = sorted_subs[0].creation_time
+
+        ac_subs = [s for s in sorted_subs if s.accepted]
+        if ac_subs:
+            self.solved = True
+            self.solved_at = ac_subs[0].creation_time
+        else:
+            self.solved = False
+            self.solved_at = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def attempt_count(self) -> int:
+        """Total number of submissions for this problem."""
+        return len(self.submissions) if self.submissions else self.attempts
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_solved(self) -> bool:
+        """True if at least one submission was accepted."""
+        if self.submissions:
+            return any(s.accepted for s in self.submissions)
+        return self.solved
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def verdict_sequence(self) -> list[str]:
+        """The chronological sequence of verdicts for this problem,
+        e.g. ``["WRONG_ANSWER", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "OK"]``.
+        """
+        if not self.submissions:
+            return []
+        return [
+            s.verdict or "UNKNOWN"
+            for s in sorted(self.submissions, key=lambda s: s.creation_time_seconds)
+        ]
+
+    def add_submission(self, submission: Submission) -> None:
+        """Append a submission and recompute all derived fields."""
+        if submission.problem_key != self._problem_key_from_fields():
+            # Allow mismatch only if this Problem was created without
+            # submissions and the key is being established now.
+            pass
+        self.submissions = list(self.submissions) + [submission]
+        self._derive_from_submissions()
+
+    def _problem_key_from_fields(self) -> str:
+        """Reconstruct the problem key from this Problem's fields."""
+        if self.contest_id is not None:
+            return f"{self.contest_id}{self.index}"
+        return f"{self.contest or 'gym'}-{self.index}"

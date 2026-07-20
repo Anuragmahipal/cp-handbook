@@ -24,7 +24,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from handbook.models import Problem
+from handbook.models import Problem, Submission
 from handbook.sync.codeforces import CFSubmission
 
 
@@ -53,8 +53,13 @@ class RevisionNote(BaseModel):
     problem's own tags and rating, since Codeforces tags *are* the
     recognition cues for a solved problem."""
     mistake: str = ""
-    """A factual count of failed attempts before this AC, by verdict --
-    not a guess at *why* they failed, just what Codeforces recorded."""
+    """A factual count and sequence of failed attempts before this AC,
+    by verdict -- not a guess at *why* they failed, just what Codeforces
+    recorded. The full verdict sequence is preserved so the learning
+    narrative remains visible (e.g. WA -> WA -> TLE -> AC)."""
+    verdict_sequence: list[str] = []
+    """The chronological sequence of all verdicts for this problem,
+    including the final AC. E.g. ["WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "OK"]."""
 
     # -- left blank for a human to fill in by hand ----------------------
     core_idea: str = ""
@@ -74,12 +79,22 @@ def _recognition_text(item: Problem) -> str:
     return " — ".join(parts)
 
 
-def _mistake_text(prior_wrong: list[CFSubmission]) -> str:
+def _mistake_text(submission_history: list[Submission]) -> str:
+    """Build a factual description of failed attempts from the full
+    submission history.
+    """
+    # Filter to only non-AC submissions that occurred before any AC
+    ac_indices = [
+        i for i, s in enumerate(submission_history) if s.accepted
+    ]
+    first_ac_index = ac_indices[0] if ac_indices else len(submission_history)
+    prior_wrong = submission_history[:first_ac_index]
+    prior_wrong = [s for s in prior_wrong if not s.accepted]
+
     if not prior_wrong:
         return "Solved on the first attempt."
-    verdict_counts = Counter(
-        submission.verdict or "UNKNOWN" for submission in prior_wrong
-    )
+
+    verdict_counts = Counter(s.verdict or "UNKNOWN" for s in prior_wrong)
     breakdown = ", ".join(
         f"{count}x {verdict}" for verdict, count in verdict_counts.most_common()
     )
@@ -87,15 +102,21 @@ def _mistake_text(prior_wrong: list[CFSubmission]) -> str:
     return f"{len(prior_wrong)} failed {plural} before AC: {breakdown}"
 
 
+def _verdict_sequence(submission_history: list[Submission]) -> list[str]:
+    """The chronological verdict sequence, including the final AC."""
+    return [s.verdict or "UNKNOWN" for s in submission_history]
+
+
 def generate_revision_note(
-    item: Problem, submission: CFSubmission, prior_wrong: list[CFSubmission]
+    item: Problem,
+    submission: CFSubmission,
+    submission_history: list[Submission],
 ) -> RevisionNote:
     """Build the intermediate revision note for a just-synced ``Problem``.
 
     ``submission`` is the accepted submission the note is generated
-    from; ``prior_wrong`` is every earlier, non-accepted submission for
-    the same problem (see :mod:`handbook.sync.pipeline` for how that's
-    computed).
+    from; ``submission_history`` is the complete, chronologically-sorted
+    list of all submissions for this problem (including non-accepted ones).
     """
     return RevisionNote(
         problem_id=item.id,
@@ -109,5 +130,6 @@ def generate_revision_note(
         source=item.source.value,
         solved_at=submission.creation_time,
         recognition=_recognition_text(item),
-        mistake=_mistake_text(prior_wrong),
+        mistake=_mistake_text(submission_history),
+        verdict_sequence=_verdict_sequence(submission_history),
     )

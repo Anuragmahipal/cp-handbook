@@ -29,9 +29,9 @@ from handbook.exceptions import DuplicateItemError
 from handbook.graph import DuplicateReport, GraphBuilder, KnowledgeGraph
 from handbook.handbook import Handbook
 from handbook.materialize import MaterializationEngine, MaterializationReport, MaterializeState
-from handbook.models import Problem
+from handbook.models import Problem, Submission
 from handbook.sync.codeforces import CFSubmission, CodeforcesClient
-from handbook.sync.mapping import build_problem_item
+from handbook.sync.mapping import build_problem_item, build_submission
 from handbook.sync.notebook import CompiledNotebookPage, compile_notebook_pages
 from handbook.sync.notebook_site import NotebookSiteReport, build_notebook_site
 from handbook.sync.note_writer import WrittenNote, write_revision_note
@@ -66,34 +66,9 @@ class SyncReport:
     graph_edge_count: int = 0
     duplicate_report: DuplicateReport | None = None
     notebook_pages: list[CompiledNotebookPage] = field(default_factory=list)
-    """Every notebook page (re)compiled this run -- see
-    :mod:`handbook.sync.notebook`. Populated for the *full* cumulative
-    set of known items, not just this run's newly imported ones, the
-    same "rebuild from everything known" convention already used for
-    :attr:`graph_node_count`/:attr:`graph_edge_count` above."""
     materialization: MaterializationReport | None = None
-    """What :class:`~handbook.materialize.engine.MaterializationEngine`
-    did this run -- which Algorithms/Patterns/Mistakes/Contests were
-    newly given a page of their own vs. already known, and any
-    warnings (ambiguous kinds, skipped hand-authored collisions). See
-    :mod:`handbook.materialize`."""
     notebook_site: NotebookSiteReport | None = None
-    """The connected notebook site built this run -- every compiled
-    page plus the ``Notebook/index.html`` dashboard, with real
-    cross-page links and shared navigation. See
-    :mod:`handbook.sync.notebook_site`. Built over Problems *and*
-    whatever :attr:`materialization` produced, so it is a strict
-    superset of :attr:`notebook_pages` -- the latter is kept around
-    unchanged as this chunk's own building block and contract, not
-    replaced by it."""
     evolution: EvolutionReport | None = None
-    """What :class:`~handbook.evolution.engine.LearningEvolutionEngine`
-    recorded this run -- new Problem-solved events, knowledge-growth
-    milestones, and mastery-status changes. See :mod:`handbook.evolution`.
-    Empty (not ``None``) on a run that imported nothing new and whose
-    materialized items' backlink counts/mastery didn't change --
-    ``EvolutionReport.is_empty`` distinguishes "ran and found nothing
-    new" from "never ran"."""
 
 
 def run_sync(
@@ -103,33 +78,47 @@ def run_sync(
     client: CodeforcesClient,
     count: int = 10_000,
 ) -> SyncReport:
-    """Run one full sync of ``handle``'s accepted submissions into ``vault_root``.
+    """Run one full sync of ``handle``'s submissions into ``vault_root``.
 
     Safe to call repeatedly: a submission id already recorded in this
     vault's :class:`~handbook.sync.state.SyncState` is never
     reprocessed, and a Codeforces problem that already has a Problem
     note in this vault never gets a second one, even if the handle
     solved it again (e.g. resubmitted in another language).
+
+    All submissions -- accepted or not -- are stored in the sync state
+    as historical records. Only accepted submissions trigger the
+    creation of a Problem note.
     """
     state = SyncState(vault_root)
     handbook = Handbook(root=vault_root)
 
     submissions = client.fetch_submissions(handle, count=count)
 
+    # Group ALL submissions by problem key, chronologically
     by_problem_key: dict[str, list[CFSubmission]] = defaultdict(list)
     for submission in submissions:
         by_problem_key[submission.problem.problem_key].append(submission)
+    for key in by_problem_key:
+        by_problem_key[key].sort(key=lambda s: s.creation_time)
 
+    # Identify newly-accepted submissions BEFORE we store anything,
+    # so we can report on them correctly.
     accepted = [s for s in submissions if s.accepted]
     new_accepted = sorted(
         (s for s in accepted if not state.has_imported(s.id)),
         key=lambda s: s.creation_time,
     )
 
+    # Store every new submission in state (accepted or not)
+    for submission in submissions:
+        if not state.has_imported(submission.id):
+            sub = build_submission(submission)
+            state.store_submission(sub)
+
     imported: list[SyncedProblem] = []
     for submission in new_accepted:
         problem_key = submission.problem.problem_key
-        state.mark_imported(submission.id)
 
         if state.has_problem(problem_key):
             # This Codeforces problem already has a note in this vault
@@ -138,19 +127,18 @@ def run_sync(
             # never re-examined, but no second note is created.
             continue
 
-        prior_wrong = [
-            s
-            for s in by_problem_key[problem_key]
-            if s.creation_time < submission.creation_time
-            and s.verdict not in (None, "OK")
+        # Build the full submission history for this problem
+        all_cf_subs = by_problem_key[problem_key]
+        submission_history = [
+            build_submission(s) for s in all_cf_subs
         ]
 
-        item = build_problem_item(submission, prior_wrong_attempts=len(prior_wrong))
+        item = build_problem_item(submission, submission_history=submission_history)
         vault_path, item = _store_with_title_collision_handling(
             handbook, item, problem_key
         )
 
-        note = generate_revision_note(item, submission, prior_wrong)
+        note = generate_revision_note(item, submission, submission_history)
         note_paths = write_revision_note(vault_root, note)
 
         state.remember_problem(problem_key, item)
@@ -170,13 +158,6 @@ def run_sync(
     )
     materialize_state.save()
 
-    # A second, separate graph -- Problems *and* whatever was just
-    # materialized -- so every Problem.algorithms/patterns/mistakes/
-    # contest_id relation now resolves to a real node instead of a
-    # graph-only shadow (see `handbook.materialize`). Kept separate
-    # from `graph` above on purpose: `graph_node_count`/`graph_edge_count`
-    # /`duplicate_report` describe the vault's authored Problems alone,
-    # unaffected by what this run happened to materialize.
     site_items = list(state.known_items()) + materialization.all_items
     site_graph = GraphBuilder(site_items).build()
 

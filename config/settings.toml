@@ -1,5 +1,5 @@
 [vault]
-path = ""
+path = "/home/anurag/Projects/cp-handbook/vault"
 
 [git]
 auto_commit = true
@@ -10,3 +10,6 @@ path = "templates"
 [notes]
 default_author = "Anurag"
 auto_backlinks = true
+
+[codeforces]
+handle = ""

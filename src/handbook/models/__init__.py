@@ -14,6 +14,7 @@ from .enums import (
 from .mistake import Mistake
 from .pattern import Pattern
 from .problem import Problem
+from .submission import Submission
 from .topic import Topic
 
 __all__ = [
@@ -27,6 +28,8 @@ __all__ = [
     "Mistake",
     "Contest",
     "Topic",
+    # submission
+    "Submission",
     # enums
     "Difficulty",
     "KnowledgeStatus",

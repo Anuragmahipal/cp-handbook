@@ -12,7 +12,7 @@ was attempted, a human-readable name for a tag -- is derived here.
 
 from __future__ import annotations
 
-from handbook.models import Problem
+from handbook.models import Problem, Submission
 from handbook.models.enums import Difficulty, Platform, ProblemSource
 from handbook.sync.codeforces import CFSubmission
 
@@ -141,28 +141,51 @@ def topic_name_for_tag(tag: str) -> str:
 
     Used to populate ``Problem.algorithms`` -- see
     :func:`handbook.sync.mapping.build_problem_item`. These names
-    deliberately don't need to match an existing Algorithm/Pattern note
-    to be useful: if one doesn't exist yet, the graph layer represents
-    it as a shadow node (see ``handbook.graph``), which is exactly what
-    lets several synced problems that share a tag show up as connected
-    once a real note for that topic is eventually added.
+deliberately don't need to match an existing Algorithm/Pattern note
+to be useful: if one doesn't exist yet, the graph layer represents
+it as a shadow node (see ``handbook.graph``), which is exactly what
+lets several synced problems that share a tag show up as connected
+once a real note for that topic is eventually added.
     """
     cleaned = tag.strip().lower()
     return _TAG_TOPIC_NAMES.get(cleaned, cleaned.title())
+
+
+# -- CFSubmission -> Submission ------------------------------------------
+
+
+def build_submission(cf_sub: CFSubmission) -> Submission:
+    """Convert a :class:`CFSubmission` into a domain :class:`Submission`.
+
+    This is a pure, mechanical transform -- no reasoning, no defaults.
+    """
+    return Submission(
+        id=cf_sub.id,
+        problem_key=cf_sub.problem.problem_key,
+        contest_id=cf_sub.contest_id,
+        creation_time_seconds=cf_sub.creation_time_seconds,
+        verdict=cf_sub.verdict,
+        programming_language=cf_sub.programming_language,
+        time_consumed_ms=cf_sub.time_consumed_ms,
+        memory_consumed_bytes=cf_sub.memory_consumed_bytes,
+        passed_test_count=cf_sub.passed_test_count,
+    )
 
 
 # -- the Problem KnowledgeItem itself -------------------------------------
 
 
 def build_problem_item(
-    submission: CFSubmission, *, prior_wrong_attempts: int
+    submission: CFSubmission,
+    *,
+    submission_history: list[Submission],
 ) -> Problem:
-    """Build a ``Problem`` KnowledgeItem from one accepted submission.
+    """Build a ``Problem`` KnowledgeItem from an accepted submission.
 
-    ``prior_wrong_attempts`` is the count of non-``OK`` submissions for
-    this same problem, made before this one -- computed by the caller
-    (see :mod:`handbook.sync.pipeline`), since it requires looking
-    across *all* of a handle's submissions, not just this one.
+    ``submission_history`` is the complete, chronologically-sorted list of
+    all submissions for this problem (including the accepted one). The
+    Problem's derived fields -- ``solved``, ``attempts``, ``solved_at``,
+    ``first_attempted_at`` -- are computed from this list automatically.
     """
     problem = submission.problem
     contest_id_str = str(problem.contest_id) if problem.contest_id is not None else None
@@ -171,6 +194,15 @@ def build_problem_item(
         if contest_id_str is not None
         else (problem.problemset_name or "gym")
     )
+
+    # The AC submission that triggered this call
+    ac_sub = build_submission(submission)
+
+    # Ensure the AC submission is in the history
+    all_subs = list(submission_history)
+    if not any(s.id == ac_sub.id for s in all_subs):
+        all_subs.append(ac_sub)
+    all_subs.sort(key=lambda s: s.creation_time_seconds)
 
     return Problem(
         title=problem.name,
@@ -184,8 +216,7 @@ def build_problem_item(
         source=source_from_participant_type(submission.participant_type),
         tags=list(problem.tags),
         algorithms=[topic_name_for_tag(tag) for tag in problem.tags],
-        solved=True,
-        attempts=prior_wrong_attempts + 1,
+        submissions=all_subs,
         time_spent_minutes=(
             time_spent_minutes(submission.relative_time_seconds)
             if problem.contest_id is not None

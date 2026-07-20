@@ -103,11 +103,21 @@ class CFSubmission:
     id: int
     contest_id: int | None
     creation_time: datetime
+    creation_time_seconds: int
+    """Unix timestamp (seconds since epoch) when the submission was created.
+    Stored alongside ``creation_time`` so the domain layer can use
+    the raw integer for deterministic sorting and id generation."""
     relative_time_seconds: int | None
     problem: CFProblem
     verdict: str | None
     participant_type: str | None
     programming_language: str
+    time_consumed_ms: int
+    """Time consumed by the solution in milliseconds."""
+    memory_consumed_bytes: int
+    """Memory consumed by the solution in bytes."""
+    passed_test_count: int
+    """Number of tests passed before the verdict was reached."""
 
     @property
     def accepted(self) -> bool:
@@ -167,9 +177,13 @@ class CodeforcesClient:
             id=data["id"],
             contest_id=data.get("contestId"),
             creation_time=datetime.fromtimestamp(data["creationTimeSeconds"]),
+            creation_time_seconds=data["creationTimeSeconds"],
             relative_time_seconds=data.get("relativeTimeSeconds"),
             problem=cls._parse_problem(data["problem"]),
             verdict=data.get("verdict"),
             participant_type=author.get("participantType"),
             programming_language=data.get("programmingLanguage", ""),
+            time_consumed_ms=data.get("timeConsumedMillis", 0),
+            memory_consumed_bytes=data.get("memoryConsumedBytes", 0),
+            passed_test_count=data.get("passedTestCount", 0),
         )
