@@ -21,7 +21,7 @@ from handbook.sync.codeforces import (
     CodeforcesTransportError,
 )
 from handbook.sync.config import SyncConfig
-from handbook.sync.pipeline import SyncReport, run_sync
+from handbook.sync.pipeline import RebuildReport, SyncReport, run_rebuild, run_sync
 from handbook.sync.state import SyncState
 from handbook.utils.filesystem import ensure_directory
 
@@ -52,6 +52,14 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=10_000,
         help="Max submissions to fetch from Codeforces (default: 10000).",
+    )
+    sync_parser.add_argument(
+        "--rebuild-history",
+        action="store_true",
+        help=(
+            "Delete all derived state and rebuild from stored submission history. "
+            "Useful for recovering from corruption or verifying determinism."
+        ),
     )
 
     subparsers.add_parser("status", help="Show configuration and sync state.")
@@ -145,6 +153,18 @@ def cmd_sync(
     handle = args.handle or config.handle
     cf_client = client if client is not None else CodeforcesClient()
     assert config.vault_path is not None  # guaranteed by is_initialized above
+
+    if args.rebuild_history:
+        console.print(
+            f"[yellow]Rebuilding history for [bold]{handle}[/bold]...[/yellow]"
+        )
+        try:
+            report = run_rebuild(handle, vault_root=config.vault_path, client=cf_client)
+        except Exception as exc:
+            console.print(f"[red]Rebuild failed:[/red] {exc}")
+            return 1
+        _print_rebuild_report(report)
+        return 0
 
     console.print(f"Syncing [bold]{handle}[/bold] -> {config.vault_path} ...")
     try:

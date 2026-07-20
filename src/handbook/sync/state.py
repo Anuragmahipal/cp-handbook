@@ -131,5 +131,18 @@ class SyncState:
                 continue
         return result
 
+    def clear_derived_state(self) -> None:
+        """Clear all derived state (problem items, imported IDs) while
+        preserving the raw submission history.
+
+        Used by ``--rebuild-history`` to replay all submissions from
+        scratch without re-fetching from Codeforces.
+        """
+        self._items_by_problem_key.clear()
+        self._imported_submission_ids.clear()
+        # Re-populate imported IDs from stored submissions
+        for sub_id in self._submissions_by_id:
+            self._imported_submission_ids.add(sub_id)
+
     def problem_count(self) -> int:
         return len(self._items_by_problem_key)
