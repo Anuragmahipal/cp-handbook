@@ -626,6 +626,16 @@ def _render_dashboard(
     )[:_DASHBOARD_LIST_LIMIT]
     recently_solved_html = _linked_list([(e.item.title, e.rel_path) for e in recently_solved])
 
+    # Upsolve: unsolved problems ordered by attempts, rating, recency
+    unsolved = sorted(
+        (e for e in problems if not getattr(e.item, "solved", True)),
+        key=lambda e: (
+            -getattr(e.item, "attempt_count", 0),
+            -(e.item.rating or 0),
+            -(getattr(e.item, "first_attempted_at", e.item.created_at) or e.item.created_at).timestamp(),
+        ),
+    )[:_DASHBOARD_LIST_LIMIT]
+    upsolve_html = _linked_list([(e.item.title, e.rel_path) for e in unsolved])
     weak_areas = sorted(
         mistakes,
         key=lambda e: _backlinks(graph, e.item.id, field_name="mistakes"),
@@ -680,6 +690,7 @@ def _render_dashboard(
         f"<h2>{escape(heading)}</h2>{body}</section>"
         for section_id, heading, body in [
             ("recently-solved", "Recently Solved", recently_solved_html),
+        ("upsolve", "Upsolve", upsolve_html),
             ("weak-areas", "Weak Areas", weak_areas_html),
             ("most-used-algorithms", "Most Used Algorithms", most_used_html),
             ("review-queue", "Review Queue", review_queue_html),

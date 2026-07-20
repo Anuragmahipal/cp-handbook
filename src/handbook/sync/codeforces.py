@@ -14,7 +14,7 @@ import json
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 _BASE_URL = "https://codeforces.com/api"
@@ -92,6 +92,46 @@ class CFProblem:
 
 
 @dataclass(frozen=True, slots=True)
+class CFContest:
+    """A Codeforces ``Contest`` object from the ``contest.list`` API.
+
+    See https://codeforces.com/apiHelp/objects#Contest.
+    """
+
+    id: int
+    name: str
+    type: str
+    phase: str
+    frozen: bool
+    duration_seconds: int
+    start_time_seconds: int | None
+    relative_time_seconds: int | None
+    prepared_by: str | None
+    website_url: str | None
+    description: str | None
+    difficulty: int | None
+    kind: str | None
+    icpc_region: str | None
+    country: str | None
+    city: str | None
+    season: str | None
+
+    @property
+    def url(self) -> str:
+        return f"https://codeforces.com/contest/{self.id}"
+
+    @property
+    def start_time(self) -> datetime | None:
+        if self.start_time_seconds is None:
+            return None
+        return datetime.fromtimestamp(self.start_time_seconds, tz=timezone.utc)
+
+    @property
+    def duration_minutes(self) -> int:
+        return self.duration_seconds // 60
+
+
+@dataclass(frozen=True, slots=True)
 class CFSubmission:
     """A Codeforces ``Submission`` object: one judged attempt at a problem.
 
@@ -158,6 +198,26 @@ class CodeforcesClient:
             )
         return [self._parse_submission(item) for item in payload["result"]]
 
+    def fetch_contests(self, *, gym: bool = False) -> list[CFContest]:
+        """All contests from Codeforces ``contest.list`` API.
+
+        Returns contests in reverse chronological order (newest first).
+        Set ``gym=True`` to include gym contests.
+
+        Raises:
+            CodeforcesAPIError: if the API reports failure.
+            CodeforcesTransportError: if the HTTP request fails outright.
+        """
+        query = urlencode({"gym": "true" if gym else "false"})
+        url = f"{self._base_url}/contest.list?{query}"
+        raw = self._transport(url)
+        payload = json.loads(raw)
+        if payload.get("status") != "OK":
+            raise CodeforcesAPIError(
+                payload.get("comment") or "Codeforces API request failed."
+            )
+        return [self._parse_contest(item) for item in payload["result"]]
+
     @staticmethod
     def _parse_problem(data: dict) -> CFProblem:
         return CFProblem(
@@ -176,7 +236,7 @@ class CodeforcesClient:
         return CFSubmission(
             id=data["id"],
             contest_id=data.get("contestId"),
-            creation_time=datetime.fromtimestamp(data["creationTimeSeconds"]),
+            creation_time=datetime.fromtimestamp(data["creationTimeSeconds"], tz=timezone.utc),
             creation_time_seconds=data["creationTimeSeconds"],
             relative_time_seconds=data.get("relativeTimeSeconds"),
             problem=cls._parse_problem(data["problem"]),
@@ -186,4 +246,26 @@ class CodeforcesClient:
             time_consumed_ms=data.get("timeConsumedMillis", 0),
             memory_consumed_bytes=data.get("memoryConsumedBytes", 0),
             passed_test_count=data.get("passedTestCount", 0),
+        )
+
+    @staticmethod
+    def _parse_contest(data: dict) -> CFContest:
+        return CFContest(
+            id=data["id"],
+            name=data["name"],
+            type=data.get("type", ""),
+            phase=data.get("phase", ""),
+            frozen=data.get("frozen", False),
+            duration_seconds=data.get("durationSeconds", 0),
+            start_time_seconds=data.get("startTimeSeconds"),
+            relative_time_seconds=data.get("relativeTimeSeconds"),
+            prepared_by=data.get("preparedBy"),
+            website_url=data.get("websiteUrl"),
+            description=data.get("description"),
+            difficulty=data.get("difficulty"),
+            kind=data.get("kind"),
+            icpc_region=data.get("icpcRegion"),
+            country=data.get("country"),
+            city=data.get("city"),
+            season=data.get("season"),
         )

@@ -29,9 +29,9 @@ from handbook.exceptions import DuplicateItemError
 from handbook.graph import DuplicateReport, GraphBuilder, KnowledgeGraph
 from handbook.handbook import Handbook
 from handbook.materialize import MaterializationEngine, MaterializationReport, MaterializeState
-from handbook.models import Problem, Submission
+from handbook.models import Contest, Problem, Submission
 from handbook.sync.codeforces import CFSubmission, CodeforcesClient
-from handbook.sync.mapping import build_problem_item, build_submission
+from handbook.sync.mapping import build_contest_item, build_problem_item, build_submission
 from handbook.sync.notebook import CompiledNotebookPage, compile_notebook_pages
 from handbook.sync.notebook_site import NotebookSiteReport, build_notebook_site
 from handbook.sync.note_writer import WrittenNote, write_revision_note
@@ -87,13 +87,37 @@ def run_sync(
     solved it again (e.g. resubmitted in another language).
 
     All submissions -- accepted or not -- are stored in the sync state
-    as historical records. Only accepted submissions trigger the
-    creation of a Problem note.
+    as historical records. Accepted submissions trigger Problem note
+    creation. Unsolved problems (submissions but no AC) also become
+    Problem items with ``solved=False``. Contest metadata is fetched
+    from ``contest.list`` and stored as ``Contest`` items.
     """
     state = SyncState(vault_root)
     handbook = Handbook(root=vault_root)
 
     submissions = client.fetch_submissions(handle, count=count)
+
+    # Fetch contest metadata for all contests referenced in submissions
+    contest_ids = {
+        s.contest_id for s in submissions
+        if s.contest_id is not None
+    }
+    contests_by_id: dict[int, Contest] = {}
+    if contest_ids:
+        try:
+            all_contests = client.fetch_contests(gym=True)
+            for cf_contest in all_contests:
+                if cf_contest.id in contest_ids:
+                    contest = build_contest_item(cf_contest)
+                    contests_by_id[cf_contest.id] = contest
+                    # Store contest in handbook (idempotent)
+                    try:
+                        handbook.store(contest)
+                    except DuplicateItemError:
+                        pass
+        except Exception:
+            # Best-effort: if contest.list fails, continue without contests
+            pass
 
     # Group ALL submissions by problem key, chronologically
     by_problem_key: dict[str, list[CFSubmission]] = defaultdict(list)
@@ -102,8 +126,7 @@ def run_sync(
     for key in by_problem_key:
         by_problem_key[key].sort(key=lambda s: s.creation_time)
 
-    # Identify newly-accepted submissions BEFORE we store anything,
-    # so we can report on them correctly.
+    # Identify newly-accepted submissions BEFORE we store anything
     accepted = [s for s in submissions if s.accepted]
     new_accepted = sorted(
         (s for s in accepted if not state.has_imported(s.id)),
@@ -117,21 +140,16 @@ def run_sync(
             state.store_submission(sub)
 
     imported: list[SyncedProblem] = []
+
+    # Process accepted submissions -> Problem notes
     for submission in new_accepted:
         problem_key = submission.problem.problem_key
 
         if state.has_problem(problem_key):
-            # This Codeforces problem already has a note in this vault
-            # (e.g. the handle re-solved it in a different language).
-            # The submission id is still marked imported above so it's
-            # never re-examined, but no second note is created.
             continue
 
-        # Build the full submission history for this problem
         all_cf_subs = by_problem_key[problem_key]
-        submission_history = [
-            build_submission(s) for s in all_cf_subs
-        ]
+        submission_history = [build_submission(s) for s in all_cf_subs]
 
         item = build_problem_item(submission, submission_history=submission_history)
         vault_path, item = _store_with_title_collision_handling(
@@ -147,6 +165,25 @@ def run_sync(
                 item=item, vault_path=vault_path, note=note, note_paths=note_paths
             )
         )
+
+    # Process unsolved problems (submissions exist but no AC)
+    for problem_key, cf_subs in by_problem_key.items():
+        if state.has_problem(problem_key):
+            continue
+        if any(s.accepted for s in cf_subs):
+            continue  # Already handled above
+
+        # Build an unsolved Problem item
+        submission_history = [build_submission(s) for s in cf_subs]
+        # Use the latest submission as the "trigger" for building
+        latest_sub = max(cf_subs, key=lambda s: s.creation_time_seconds)
+        item = build_problem_item(latest_sub, submission_history=submission_history)
+        vault_path, item = _store_with_title_collision_handling(
+            handbook, item, problem_key
+        )
+
+        # No revision note for unsolved problems (no AC to learn from)
+        state.remember_problem(problem_key, item)
 
     graph = GraphBuilder(state.known_items()).build()
     _export_graph(vault_root, graph)

@@ -12,7 +12,9 @@ was attempted, a human-readable name for a tag -- is derived here.
 
 from __future__ import annotations
 
-from handbook.models import Problem, Submission
+from handbook.models import Contest, Problem, Submission
+from handbook.models.enums import ContestType
+from handbook.sync.codeforces import CFContest
 from handbook.models.enums import Difficulty, Platform, ProblemSource
 from handbook.sync.codeforces import CFSubmission
 
@@ -223,3 +225,32 @@ def build_problem_item(
             else None
         ),
     )
+
+# -- CFContest -> Contest ------------------------------------------------
+
+
+def build_contest_item(cf_contest: CFContest) -> Contest:
+    """Build a ``Contest`` KnowledgeItem from a Codeforces contest.
+
+    Maps ``CFContest.type`` to :class:`ContestType` where possible,
+    falling back to :attr:`ContestType.OTHER` for unrecognized values.
+    """
+    contest_type = _contest_type_from_cf(cf_contest.type)
+    return Contest(
+        title=cf_contest.name,
+        platform=Platform.CODEFORCES,
+        contest_type=contest_type,
+        start_time=cf_contest.start_time,
+        duration_minutes=cf_contest.duration_minutes,
+        url=cf_contest.url,
+    )
+
+
+def _contest_type_from_cf(cf_type: str) -> ContestType:
+    """Map Codeforces contest type strings to ContestType enum."""
+    mapping = {
+        "CF": ContestType.RATED,
+        "IOI": ContestType.UNRATED,
+        "ICPC": ContestType.UNRATED,
+    }
+    return mapping.get(cf_type, ContestType.OTHER)
